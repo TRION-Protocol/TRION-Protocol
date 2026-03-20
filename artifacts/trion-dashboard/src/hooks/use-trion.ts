@@ -27,7 +27,8 @@ export function useTrionData() {
   return useQuery<TrionData, Error>({
     queryKey: ["trion-latest"],
     queryFn: async () => {
-      const res = await fetch("/api/trion/latest");
+      const base = import.meta.env.VITE_API_URL ?? "";
+      const res = await fetch(`${base}/api/trion/latest`);
       if (!res.ok) {
         if (res.status === 503 || res.status === 404) {
           throw new Error("Daemon offline");
