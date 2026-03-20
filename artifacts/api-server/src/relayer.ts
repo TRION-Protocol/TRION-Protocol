@@ -26,6 +26,33 @@ const EIP712_TYPES = {
   ],
 } as const;
 
+function readL0State(): {
+  block_number: number;
+  features: { f9: number };
+  mu_t: number;
+  is_stable: boolean;
+} | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(JSON_PATH, "utf-8");
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      console.log("Awaiting L0 data synchronization...");
+    } else {
+      console.error("[RELAYER] Failed to read L0 state file:", err);
+    }
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    console.log("Awaiting L0 data synchronization...");
+    return null;
+  }
+}
+
 async function relay() {
   const privateKey = process.env["RELAYER_PRIVATE_KEY"];
   if (!privateKey) {
@@ -33,7 +60,10 @@ async function relay() {
     process.exit(1);
   }
 
-  const rpcUrl = process.env["ARBITRUM_SEPOLIA_RPC_URL"] || "https://sepolia-rollup.arbitrum.io/rpc";
+  const rpcUrl =
+    process.env["ARBITRUM_SEPOLIA_RPC"] ||
+    process.env["ARBITRUM_SEPOLIA_RPC_URL"] ||
+    "https://sepolia-rollup.arbitrum.io/rpc";
   const oracleAddress = process.env["TRION_ORACLE_ADDRESS"];
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -49,24 +79,8 @@ async function relay() {
   while (true) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
 
-    if (!fs.existsSync(JSON_PATH)) {
-      console.log("[RELAYER] Waiting for Rust daemon to produce data...");
-      continue;
-    }
-
-    let data: {
-      block_number: number;
-      features: { f9: number };
-      mu_t: number;
-      is_stable: boolean;
-    };
-
-    try {
-      data = JSON.parse(fs.readFileSync(JSON_PATH, "utf-8"));
-    } catch {
-      console.error("[RELAYER] Failed to parse JSON, skipping cycle");
-      continue;
-    }
+    const data = readL0State();
+    if (!data) continue;
 
     const blockNumber = data.block_number;
     if (blockNumber <= lastRelayedBlock) {
