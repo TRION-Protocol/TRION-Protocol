@@ -6,3 +6,9 @@ id = "9k-Zy44_9C08zFXJcxfVU"
 uri = "file://TRION-Protocol.tar.gz"
 type = "unspecified"
 title = "TRION-Protocol Source Code"
+
+[[outputs]]
+id = "ab8r2I0XL3B9OIyh9n3f6"
+uri = "file://TRION-Protocol.zip"
+type = "unspecified"
+title = "TRION-Protocol.zip"
