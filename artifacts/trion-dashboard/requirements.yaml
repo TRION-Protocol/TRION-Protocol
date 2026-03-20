@@ -1,0 +1,11 @@
+packages:
+  "framer-motion": "For sleek, matrix-like data update animations and flashing alerts"
+  "clsx": "For conditional class merging in UI components"
+  "tailwind-merge": "For merging tailwind classes safely"
+  "date-fns": "For formatting the block timestamps"
+
+images: []
+
+notes:
+  - "The app relies on the local Rust daemon running and exposing /api/trion/latest."
+  - "The design uses a strict dark-mode terminal aesthetic with monospace fonts and neon colors."

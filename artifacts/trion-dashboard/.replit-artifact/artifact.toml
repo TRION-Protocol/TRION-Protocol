@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "TRION Protocol Dashboard"
+version = "1.0.0"
+id = "artifacts/trion-dashboard"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 24875
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/trion-dashboard run dev"
+
+[services.env]
+PORT = "24875"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/trion-dashboard", "run", "build"]
+publicDir = "artifacts/trion-dashboard/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
