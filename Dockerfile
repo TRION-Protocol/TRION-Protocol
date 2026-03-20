@@ -28,6 +28,13 @@ RUN pnpm --filter @workspace/api-server run build
 ## Stage 3: Production runner (slim image — only what's needed to run)
 FROM node:20-slim AS runner
 
+# ==========================================
+# 🚨 THE FIX: Install curl and certs for Rust
+# ==========================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Rust binary
