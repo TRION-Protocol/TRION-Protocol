@@ -9,6 +9,6 @@
     "resolveJsonModule": true,
     "outDir": "./hardhat-artifacts"
   },
-  "include": ["hardhat.config.ts", "hardhat-scripts/**/*.ts"],
+  "include": ["hardhat.config.ts", "scripts/**/*.ts", "hardhat-scripts/**/*.ts"],
   "exclude": ["node_modules", "artifacts", "dist"]
 }
