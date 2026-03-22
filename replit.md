@@ -42,6 +42,20 @@ Requires `ARBITRUM_RPC_URL` in Replit Secrets (full URL or raw Alchemy key).
 - **AnomalyHunter (EMA)**: α=0.10, anomaly_threshold=15% — tracks μ(t) via Exponential Moving Average
 - Output: `/tmp/trion_latest.json` — includes `mu_t`, `is_stable`, shared between daemon, API server, and relayer
 
+## Phase 1: Integration Layer Contracts
+
+Deployed to Arbitrum Sepolia.
+
+| Contract | Address |
+|----------|---------|
+| MockLendingVault | `0x66350c06196afBaC29f206F8Fc2b7d81B359D0D5` |
+| TRIONOracleV2 (guard target) | `0x852365411bf700ba7257A93c134CBdE71A58d4E0` |
+
+- `contracts/ITRIONOracle.sol` — interface: `isSafe(bytes32 txId)`
+- `contracts/TRIONGuard.sol` — abstract base with `onlyWhenCoherent(bytes32)` modifier
+- `contracts/MockLendingVault.sol` — demo DeFi vault gated by TRION
+- `hardhat-scripts/deploy_mock.ts` — deployment script
+
 ## Phase 2: On-Chain Oracle Bridge (V2 Trustless)
 
 ### Smart Contract: `contracts/v2_trustless/TRIONOracleV2.sol`
