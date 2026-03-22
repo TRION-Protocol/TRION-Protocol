@@ -81,7 +81,7 @@ contract ProtectedVault {
  * Composable: Targets core protocols like GMX, Aave, and Radiant.
 📈 Status: Live MVP
 TRION is currently monitoring Arbitrum mainnet state in real-time.
- * Live Dashboard: [INSERT YOUR REPLIT URL HERE]
+ * Live Dashboard: https://trion-protocol.onrender.com
  * License: CC0 — Public Good
  * Contact: trionprotocolbh@gmail.com
 🧪 Quickstart (Technical Verification)
