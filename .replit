@@ -33,6 +33,10 @@ args = "API Server"
 task = "workflow.run"
 args = "Dashboard"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Bootstrap V2"
+
 [[workflows.workflow]]
 name = "API Server"
 author = "agent"
@@ -56,6 +60,17 @@ waitForPort = 24875
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "Bootstrap V2"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace && HARDHAT_DISABLE_TELEMETRY_PROMPT=true TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run hardhat-scripts/bootstrap_v2.ts --network arbitrumSepolia"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"
