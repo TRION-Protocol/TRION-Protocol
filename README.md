@@ -83,7 +83,7 @@ contract ProtectedVault {
 TRION is currently monitoring Arbitrum mainnet state in real-time.
  * Live Dashboard: https://trion-protocol.onrender.com
  * License: CC0 — Public Good
- * Contact: trionprotocolbh@gmail.com
+ * Contact: analyshd@gmail.com
 🧪 Quickstart (Technical Verification)
 1. Clone and Configure
 git clone https://github.com/TRION-Protocol/TRION-Protocol.git
