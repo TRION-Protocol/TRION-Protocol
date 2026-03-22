@@ -63,9 +63,10 @@ contract VulnerableVault is TRIONGuard {
      * @dev INTENTIONALLY VULNERABLE to reentrancy.
      *      External call fires BEFORE balance is cleared — a textbook exploit.
      *      Protected by TRION: if the oracle signals anomaly, this reverts
-     *      with "TRION: SILENCE" before a single wei can leave.
+     *      with "TRION: Thermodynamic Collapse Detected" before a single wei can leave.
+     *      txId is derived deterministically from caller + block number.
      */
-    function withdraw() external trionProtected {
+    function withdraw() external onlyWhenCoherent(keccak256(abi.encode(msg.sender, block.number))) {
         uint256 amount = balances[msg.sender];
         require(amount > 0, "Nothing to withdraw");
 
