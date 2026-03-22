@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "rust-stable", "web"]
+modules = ["rust-stable", "web", "nodejs-24"]
 
 [[artifacts]]
 id = "artifacts/trion-dashboard"
