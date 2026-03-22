@@ -1,52 +1,49 @@
 import { useQuery } from "@tanstack/react-query";
-import { ethers } from "ethers";
 
-const RPC_URL = "https://sepolia-rollup.arbitrum.io/rpc";
-const ORACLE_ADDRESS = "0x708193f93Fb897fbeA72e7e7D19237770F19E969";
-
-const ORACLE_ABI = [
-  "function latestBlockNumber() view returns (uint256)",
-  "function currentCoherenceScore() view returns (uint256)",
-  "function dynamicBaseline() view returns (uint256)",
-  "function isNetworkStable() view returns (bool)",
-  "function trionRelayer() view returns (address)",
-];
+const BASE = import.meta.env.VITE_API_URL ?? "";
 
 export interface OracleData {
-  latestBlockNumber: number;
-  coherenceScore: number;
-  dynamicBaseline: number;
-  isNetworkStable: boolean;
-  relayerAddress: string;
-  contractAddress: string;
+  version:       string;
+  oracleAddress: string | null;
+  blockNumber:   number;
+  txId:          string;
+  signalType:    number;
+  signalName:    string;
+  coherenceScore:   number;
+  dynamicBaseline:  number;
+  isNetworkStable:  boolean;
+  alert:         boolean;
+  packedSignal:  string;
+  signature:     string;
+  contractAddress:  string;
+  updatedAt:     number;
 }
 
 async function fetchOracleData(): Promise<OracleData> {
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const oracle = new ethers.Contract(ORACLE_ADDRESS, ORACLE_ABI, provider);
-
-  const [latestBlockNumber, currentCoherenceScore, dynamicBaseline, isNetworkStable, trionRelayer] =
-    await Promise.all([
-      oracle.latestBlockNumber() as Promise<bigint>,
-      oracle.currentCoherenceScore() as Promise<bigint>,
-      oracle.dynamicBaseline() as Promise<bigint>,
-      oracle.isNetworkStable() as Promise<boolean>,
-      oracle.trionRelayer() as Promise<string>,
-    ]);
-
+  const res = await fetch(`${BASE}/api/trion/v2oracle`);
+  if (!res.ok) throw new Error(`V2 oracle API ${res.status}`);
+  const d = await res.json();
   return {
-    latestBlockNumber: Number(latestBlockNumber),
-    coherenceScore: Number(currentCoherenceScore) / 1_000_000,
-    dynamicBaseline: Number(dynamicBaseline) / 1_000_000,
-    isNetworkStable,
-    relayerAddress: trionRelayer,
-    contractAddress: ORACLE_ADDRESS,
+    version:          d.version ?? "v2",
+    oracleAddress:    d.oracleAddress ?? null,
+    blockNumber:      d.blockNumber ?? 0,
+    txId:             d.txId ?? "0x",
+    signalType:       d.signalType ?? 0,
+    signalName:       d.signalName ?? "SAFE",
+    coherenceScore:   d.coherence ?? 0,
+    dynamicBaseline:  d.threshold ?? 0,
+    isNetworkStable:  d.isStable ?? true,
+    alert:            d.alert ?? false,
+    packedSignal:     d.packedSignal ?? "0x0",
+    signature:        d.signature ?? "0x",
+    contractAddress:  d.oracleAddress ?? "",
+    updatedAt:        d.updatedAt ?? 0,
   };
 }
 
 export function useOracleData() {
   return useQuery<OracleData, Error>({
-    queryKey: ["oracle-data"],
+    queryKey: ["oracle-data-v2"],
     queryFn: fetchOracleData,
     refetchInterval: 15_000,
     retry: 3,

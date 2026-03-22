@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Link2, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Link2, CheckCircle2, XCircle, Loader2, ShieldCheck } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import type { OracleData } from "@/hooks/use-oracle";
 
@@ -24,7 +24,15 @@ function AddressChip({ address }: { address: string }) {
   );
 }
 
+const SIGNAL_COLORS: Record<string, string> = {
+  SAFE:    "text-primary",
+  WARN:    "text-yellow-400",
+  SILENCE: "text-destructive text-glow-destructive",
+};
+
 export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
+  const signalColor = data ? (SIGNAL_COLORS[data.signalName] ?? "text-primary") : "text-primary";
+
   return (
     <div className="hud-border bg-card/60 p-6 flex flex-col gap-5 relative overflow-hidden">
       {/* Header */}
@@ -36,8 +44,9 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
           <div className="text-xs text-accent uppercase tracking-widest font-bold">
             On-Chain Oracle
           </div>
-          <div className="text-[10px] text-muted-foreground tracking-wide">
+          <div className="text-[10px] text-muted-foreground tracking-wide flex items-center gap-1.5">
             Arbitrum Sepolia · Live Contract Data
+            <span className="border border-accent/30 text-accent px-1 rounded text-[8px] uppercase tracking-widest">V2</span>
           </div>
         </div>
         <div className="ml-auto">
@@ -60,7 +69,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
       {isLoading && !data && (
         <div className="flex flex-col items-center justify-center py-6 gap-3 text-muted-foreground">
           <Loader2 className="w-8 h-8 animate-spin opacity-40" />
-          <span className="text-xs uppercase tracking-widest">Querying Sepolia RPC...</span>
+          <span className="text-xs uppercase tracking-widest">Querying V2 Relayer...</span>
         </div>
       )}
 
@@ -68,7 +77,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
       {isError && !data && (
         <div className="flex flex-col items-center justify-center py-4 gap-2 text-destructive/70">
           <XCircle className="w-8 h-8 opacity-60" />
-          <span className="text-xs uppercase tracking-widest">RPC Unreachable</span>
+          <span className="text-xs uppercase tracking-widest">V2 Relayer Not Active</span>
         </div>
       )}
 
@@ -76,7 +85,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
       <AnimatePresence mode="wait">
         {data && (
           <motion.div
-            key={data.latestBlockNumber}
+            key={data.blockNumber}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-2 gap-4"
@@ -94,10 +103,10 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
               </div>
             </div>
 
-            {/* μ(t) Baseline */}
+            {/* μ(t) / Θ(t) Baseline */}
             <div className="border border-primary/10 bg-black/20 p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
-                μ(t) Baseline
+                Θ(t) Threshold
               </div>
               <div className="text-xl font-bold tabular-nums text-primary">
                 {formatNumber(data.dynamicBaseline, 6)}
@@ -126,17 +135,30 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
                 Last Relayed Block
               </div>
               <div className="text-sm font-mono font-bold text-primary truncate">
-                #{data.latestBlockNumber.toLocaleString()}
+                #{data.blockNumber.toLocaleString()}
+              </div>
+            </div>
+
+            {/* V2 Signal type */}
+            <div className="border border-primary/10 bg-black/20 p-3">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                Signal
+              </div>
+              <div className={cn("text-sm font-bold uppercase tracking-widest flex items-center gap-1.5", signalColor)}>
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {data.signalName}
               </div>
             </div>
 
             {/* Contract Address */}
-            <div className="border border-primary/10 bg-black/20 p-3">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
-                Contract
+            {data.contractAddress && (
+              <div className="col-span-2 border border-primary/10 bg-black/20 p-3 flex items-center justify-between">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                  Oracle V2 Contract
+                </div>
+                <AddressChip address={data.contractAddress} />
               </div>
-              <AddressChip address={data.contractAddress} />
-            </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

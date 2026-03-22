@@ -5,6 +5,11 @@ const RELAYER_PRIVATE_KEY =
   process.env["RELAYER_PRIVATE_KEY"] ??
   "0x93fd4461112f6e7a0cb14f6a71d8953f1351d76c71ee4026710ecb5399469a9d";
 
+const SEPOLIA_RPC =
+  process.env["ARBITRUM_SEPOLIA_RPC"] ??
+  process.env["ARBITRUM_SEPOLIA_RPC_URL"] ??
+  "https://arbitrum-sepolia-rpc.publicnode.com";
+
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.28",
@@ -19,7 +24,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     arbitrumSepolia: {
-      url: process.env["ARBITRUM_SEPOLIA_RPC_URL"] ?? "https://sepolia-rollup.arbitrum.io/rpc",
+      url: SEPOLIA_RPC,
       accounts: [RELAYER_PRIVATE_KEY],
     },
   },
