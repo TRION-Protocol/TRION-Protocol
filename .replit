@@ -33,6 +33,10 @@ args = "Bootstrap V2"
 task = "workflow.run"
 args = "TRION L0 Daemon"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "TRION V2 Relayer"
+
 [[workflows.workflow]]
 name = "Bootstrap V2"
 author = "agent"
@@ -51,6 +55,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd /home/runner/workspace/trion-l0 && cargo run"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "TRION V2 Relayer"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run relay"
 
 [workflows.workflow.metadata]
 outputType = "console"
