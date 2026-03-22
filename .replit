@@ -1,4 +1,4 @@
-modules = ["rust-stable", "web", "nodejs-24"]
+modules = ["nodejs-20", "rust-stable", "web"]
 
 [[artifacts]]
 id = "artifacts/trion-dashboard"
@@ -27,18 +27,35 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Bootstrap V2"
+args = "API Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Dashboard"
 
 [[workflows.workflow]]
-name = "Bootstrap V2"
+name = "API Server"
 author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
+waitForPort = 8080
 
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "Dashboard"
+author = "agent"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd /home/runner/workspace && pkill -f 'tsx ./src/relayer' 2>/dev/null || true; sleep 3; HARDHAT_DISABLE_TELEMETRY_PROMPT=true TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run hardhat-scripts/bootstrap_v2.ts --network arbitrumSepolia"
+args = "PORT=24875 BASE_PATH=/ pnpm --filter @workspace/trion-dashboard run dev"
+waitForPort = 24875
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 stack = "PNPM_WORKSPACE"
