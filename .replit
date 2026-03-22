@@ -27,19 +27,18 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Start application"
+args = "Bootstrap V2"
 
 [[workflows.workflow]]
-name = "Start application"
+name = "Bootstrap V2"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=24875 BASE_PATH=/ pnpm --filter @workspace/trion-dashboard run dev & PORT=8080 pnpm --filter @workspace/api-server run dev & ./trion-l0/target/release/trion-l0 2>&1 & pnpm --filter @workspace/api-server run relay 2>&1 & wait"
-waitForPort = 24875
+args = "cd /home/runner/workspace && pkill -f 'tsx ./src/relayer' 2>/dev/null || true; sleep 3; HARDHAT_DISABLE_TELEMETRY_PROMPT=true TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run hardhat-scripts/bootstrap_v2.ts --network arbitrumSepolia"
 
 [agent]
 stack = "PNPM_WORKSPACE"
