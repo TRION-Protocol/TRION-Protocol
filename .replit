@@ -37,6 +37,10 @@ args = "Dashboard"
 task = "workflow.run"
 args = "Bootstrap V2"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "TRION L0 Daemon"
+
 [[workflows.workflow]]
 name = "API Server"
 author = "agent"
@@ -68,6 +72,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd /home/runner/workspace && HARDHAT_DISABLE_TELEMETRY_PROMPT=true TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run hardhat-scripts/bootstrap_v2.ts --network arbitrumSepolia"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "TRION L0 Daemon"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace/trion-l0 && cargo run"
 
 [workflows.workflow.metadata]
 outputType = "console"
