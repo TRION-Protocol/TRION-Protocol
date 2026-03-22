@@ -5,6 +5,7 @@ import { StatusBanner } from "@/components/StatusBanner";
 import { FeatureCard } from "@/components/FeatureCard";
 import { CoherenceDisplay } from "@/components/CoherenceDisplay";
 import { OracleCard } from "@/components/OracleCard";
+import { FirewallPanel } from "@/components/FirewallPanel";
 import { formatNumber, formatInteger } from "@/lib/utils";
 import { Terminal, Activity } from "lucide-react";
 
@@ -116,6 +117,11 @@ export function Dashboard() {
               EXTRACTING Φ PLANE
             </div>
           </div>
+        </section>
+
+        {/* Full-width bottom row: L2 Execution Firewall */}
+        <section className="lg:col-span-12">
+          <FirewallPanel liveCt={data.features.f9} liveTheta={data.theta} />
         </section>
 
       </main>
