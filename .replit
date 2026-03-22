@@ -33,6 +33,14 @@ args = "Bootstrap V2"
 task = "workflow.run"
 args = "TRION L0 Daemon"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "API Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "TRION Dashboard"
+
 [[workflows.workflow]]
 name = "Bootstrap V2"
 author = "agent"
@@ -54,6 +62,30 @@ args = "cd /home/runner/workspace/trion-l0 && cargo run"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "API Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "TRION Dashboard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=24875 BASE_PATH=/ pnpm --filter @workspace/trion-dashboard run dev"
+waitForPort = 24875
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 stack = "PNPM_WORKSPACE"
