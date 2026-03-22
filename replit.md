@@ -42,24 +42,25 @@ Requires `ARBITRUM_RPC_URL` in Replit Secrets (full URL or raw Alchemy key).
 - **AnomalyHunter (EMA)**: α=0.10, anomaly_threshold=15% — tracks μ(t) via Exponential Moving Average
 - Output: `/tmp/trion_latest.json` — includes `mu_t`, `is_stable`, shared between daemon, API server, and relayer
 
-## Phase 2: On-Chain Oracle Bridge
+## Phase 2: On-Chain Oracle Bridge (V2 Trustless)
 
-### Smart Contract: `contracts/TrionOracle.sol`
-- EIP-712 typed data oracle on Arbitrum
-- Stores C(t) and μ(t) scaled by 1e6 on-chain
-- `onlyStableNetwork` modifier: DeFi protocols can integrate to auto-pause on anomaly
-- **Deployed on Arbitrum Sepolia**: `0x708193f93Fb897fbeA72e7e7D19237770F19E969`
-- Explorer: https://sepolia.arbiscan.io/address/0x708193f93Fb897fbeA72e7e7D19237770F19E969
-- Relayer wallet: `0xdbbf66cad621da3ec186d18b29a135d2a5d42d20`
-- Deploy command: `HARDHAT_DISABLE_TELEMETRY_PROMPT=true TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run hardhat-scripts/deploy.ts --network arbitrumSepolia`
+### Smart Contract: `contracts/v2_trustless/TRIONOracleV2.sol`
+- V2 Trustless architecture — ecrecover-based validator permissioning
+- Packed signal layout (bits 0-1: signalType, bits 17-48: coherence ×1e6, bits 49-80: threshold ×1e6)
+- `publishSignal(txId, packedSignal, signature)` — on-chain signature verification via ecrecover
+- **Deployed on Arbitrum Sepolia (V2)**: `0x852365411bf700ba7257A93c134CBdE71A58d4E0`
+- Explorer: https://sepolia.arbiscan.io/address/0x852365411bf700ba7257A93c134CBdE71A58d4E0
+- Relayer wallet / validator: `0xdbbf66cad621da3ec186d18b29a135d2a5d42d20`
+- Deploy command: `TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run hardhat-scripts/deploy_v2_sepolia.ts --network arbitrumSepolia`
 
-### EIP-712 Relayer: `artifacts/api-server/src/relayer.ts`
+### V2 Relayer: `artifacts/api-server/src/relayer.ts`
 - Polls `/tmp/trion_latest.json` every 12 seconds
-- Constructs EIP-712 typed data payload matching `TrionOracle`
-- Signs with `RELAYER_PRIVATE_KEY` using ethers.js v6
-- Broadcasts to Arbitrum Sepolia via `ARBITRUM_SEPOLIA_RPC_URL`
+- Bit-packs signalType + coherence + threshold into a uint256
+- Signs payload hash with EIP-191 personal_sign (ecrecover-compatible)
+- Broadcasts to `TRIONOracleV2.publishSignal()` on Arbitrum Sepolia
+- Writes V2 signed state cache to `/tmp/trion_v2_oracle.json` (served via `/api/trion/v2oracle`)
 - Run: `pnpm --filter @workspace/api-server run relay`
-- Requires: `RELAYER_PRIVATE_KEY`, optionally `TRION_ORACLE_ADDRESS`, `ARBITRUM_SEPOLIA_RPC_URL`
+- Requires: `RELAYER_PRIVATE_KEY`, `ARBITRUM_SEPOLIA_RPC` (defaults to publicnode), `TRION_V2_ORACLE_ADDRESS`
 
 ## L2 Public Dashboard
 

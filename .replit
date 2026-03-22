@@ -56,12 +56,13 @@ packages = ["openssl", "pkg-config"]
 [userenv]
 
 [userenv.shared]
-ARBITRUM_RPC_URL = "https://arb-mainnet.g.alchemy.com/v2/EE5w0yn4ZwSc5TdjVYw90"
+ARBITRUM_RPC_URL = "https://arb-one.api.pocket.network"
 RELAYER_PRIVATE_KEY = "0x93fd4461112f6e7a0cb14f6a71d8953f1351d76c71ee4026710ecb5399469a9d"
 ARBITRUM_SEPOLIA_RPC_URL = "https://sepolia-rollup.arbitrum.io/rpc"
 TRION_RELAYER_ADDRESS = "0xdbbf66cad621da3ec186d18b29a135d2a5d42d20"
 TRION_ORACLE_ADDRESS = "0x708193f93Fb897fbeA72e7e7D19237770F19E969"
-ARBITRUM_SEPOLIA_RPC = "https://arb-sepolia.g.alchemy.com/v2/EE5w0yn4ZwSc5TdjVYw90"
+ARBITRUM_SEPOLIA_RPC = "https://arbitrum-sepolia-rpc.publicnode.com"
+TRION_V2_ORACLE_ADDRESS = "0x852365411bf700ba7257A93c134CBdE71A58d4E0"
 
 [[ports]]
 localPort = 8080
