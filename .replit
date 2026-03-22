@@ -27,43 +27,11 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "API Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Dashboard"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Bootstrap V2"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "TRION L0 Daemon"
-
-[[workflows.workflow]]
-name = "API Server"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
-waitForPort = 8080
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Dashboard"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=24875 BASE_PATH=/ pnpm --filter @workspace/trion-dashboard run dev"
-waitForPort = 24875
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "Bootstrap V2"

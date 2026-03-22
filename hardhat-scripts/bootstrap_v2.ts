@@ -6,31 +6,38 @@ async function main() {
     const oracle = await ethers.getContractAt("TRIONOracleV2", oracleAddress);
 
     console.log("🧬 TRION Genesis: Initiating Organic State Generation...");
-    
+    console.log(`   Deployer: ${deployer.address}`);
+
+    // Fetch nonce directly from the network to avoid Hardhat's stale cache
+    let deployerNonce = await ethers.provider.getTransactionCount(deployer.address, "pending");
+    console.log(`   Network nonce: ${deployerNonce}`);
+
     const wallets = Array.from({ length: 8 }).map(() => ethers.Wallet.createRandom().connect(ethers.provider));
-    
+
     console.log("💸 Funding 8 independent actors...");
     for (let i = 0; i < wallets.length; i++) {
         const tx = await deployer.sendTransaction({
             to: wallets[i].address,
             value: ethers.parseEther("0.005"),
+            nonce: deployerNonce,
         });
         await tx.wait();
+        deployerNonce++;
         console.log(`   Actor ${i+1} funded: ${wallets[i].address}`);
     }
 
     console.log("\n🕸️ Commencing 150-Block Temporal Spread & Interaction Diversity...");
-    
+
     for (let i = 1; i <= 150; i++) {
         const actorIndex = Math.floor(Math.random() * wallets.length);
         const activeActor = wallets[actorIndex];
         const actionType = Math.random();
-        
+
         try {
             if (actionType > 0.3) {
                 const tx = await activeActor.sendTransaction({
                     to: oracleAddress,
-                    data: "0xfe7aceb7", 
+                    data: "0xfe7aceb7",
                     value: 0
                 });
                 await tx.wait();
@@ -51,7 +58,7 @@ async function main() {
         const delay = Math.floor(Math.random() * 9000) + 3000;
         await new Promise(resolve => setTimeout(resolve, delay));
     }
-    
+
     console.log("\n✅ Organic History Successfully Bootstrapped. The Moat is built.");
 }
 
