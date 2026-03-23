@@ -215,3 +215,14 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 - `sdk/TrionSDK.ts` — TypeScript SDK for signal packing/unpacking
   - `TrionSDK.packSignal(status, coherence, threshold, blockNum, timestamp): bigint`
   - `TrionSDK.unpackSignal(packed: bigint): { status, coherence, threshold, blockNum, timestamp }`
+
+### V3 Deployed Contracts (Arbitrum Sepolia)
+
+| Contract | Address |
+|----------|---------|
+| TRIONOracleV3 | `0xb819c63c02Ed5aB49017C0f3f2568A14624658b3` |
+| TRIONProtectedVault (V3) | `0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D` |
+
+- Explorer (Oracle): https://sepolia.arbiscan.io/address/0xb819c63c02Ed5aB49017C0f3f2568A14624658b3
+- Explorer (Vault): https://sepolia.arbiscan.io/address/0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D
+- Deploy script: `hardhat-scripts/deploy_v3.ts`

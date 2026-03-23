@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ethers, keccak256, toUtf8Bytes } from "ethers";
+import { ethers } from "ethers";
 import { ShieldAlert, ShieldCheck, Swords, RotateCcw, ExternalLink, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const VAULT_ADDRESS = "0x66350c06196afBaC29f206F8Fc2b7d81B359D0D5";
-const ORACLE_ADDRESS = "0x852365411bf700ba7257A93c134CBdE71A58d4E0";
+const VAULT_ADDRESS  = "0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D"; // TRIONProtectedVault V3
+const ORACLE_ADDRESS = "0xb819c63c02Ed5aB49017C0f3f2568A14624658b3"; // TRIONOracleV3
 const ARBITRUM_SEPOLIA_CHAIN_ID = "0x66eee"; // 421614
 
 type Phase =
@@ -81,16 +81,15 @@ export function TRIONAttackSimulator() {
 
       const provider = new ethers.BrowserProvider(ethereum as unknown as ethers.Eip1193Provider);
       const signer = await provider.getSigner();
-      const abi = ["function flashLoanAttack(bytes32 txId, uint256 amount) external"];
+      const abi = ["function flashLoan(address receiver, uint256 amount) external"];
       const vault = new ethers.Contract(VAULT_ADDRESS, abi, signer);
-      const txId = keccak256(toUtf8Bytes("demo-attack-1"));
       const exploitAmount = ethers.parseEther("50000000");
 
       // ── Inner layer: catches user rejection & wallet pre-execution simulation failures ──
       let tx: ethers.TransactionResponse;
       try {
         // gasLimit bypasses ethers' eth_estimateGas pre-check so the wallet opens
-        tx = await vault.flashLoanAttack(txId, exploitAmount, { gasLimit: 3_000_000 }) as ethers.TransactionResponse;
+        tx = await vault.flashLoan(signer.address, exploitAmount, { gasLimit: 3_000_000 }) as ethers.TransactionResponse;
       } catch (sendError: unknown) {
         if (isUserRejection(sendError)) {
           // Scenario 1: user clicked Reject
@@ -187,9 +186,9 @@ export function TRIONAttackSimulator() {
           </a>
         </div>
         <div className="border border-primary/20 bg-black/20 p-3 flex flex-col gap-1">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-widest">Guard Oracle (V2)</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-widest">Guard Oracle (V3)</div>
           <div className="text-[11px] font-mono text-accent truncate">{ORACLE_ADDRESS}</div>
-          <div className="text-[10px] text-muted-foreground mt-0.5">onlyWhenCoherent · isSafe(txId)</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">onlyWhenCoherent · V3 quorum guard</div>
         </div>
       </div>
 
