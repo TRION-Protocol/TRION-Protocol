@@ -182,3 +182,36 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+---
+
+## Phase 3: V3.0 Institutional Architecture
+
+### Smart Contracts (V3)
+
+| File | Purpose |
+|------|---------|
+| `contracts/interfaces/ITRIONOracleV3.sol` | V3 oracle interface with quorum-aware events |
+| `contracts/TRIONOracleV3.sol` | Hardened oracle — cryptographic quorum consensus, 256-bit signal packing, chain-bound verification |
+| `contracts/TRIONGuardV3.sol` | Abstract integration guard — `onlyWhenCoherent` + `onlyWhenCoherentCrossChain` modifiers, bypass toggle |
+| `contracts/examples/TRIONProtectedVault.sol` | Reference consumer — flash loan gated by TRION oracle |
+
+### V3 Signal Layout (256-bit packed uint256)
+| Bits | Field | Notes |
+|------|-------|-------|
+| 0–7 | Status | 1=SAFE, 2=WARN, 3=SILENCE |
+| 8–39 | C(t) coherence | Scaled ×1e6 |
+| 40–71 | Threshold | Scaled ×1e6 |
+| 72–135 | BlockNum | uint64 |
+| 136–199 | Timestamp | uint64 (unix) |
+
+### V3 Quorum Model
+- `publishSignal(txId, packedData, signatures[])` — requires `signatures.length >= quorumRequired` (default: 2)
+- Signatures must be sorted ascending by signer address (replay-safe ordering)
+- `block.chainid` is bound into the message hash (cross-chain replay protection)
+- Signal freshness: verified within 300 seconds and 50 blocks of publish time
+
+### Developer SDK
+- `sdk/TrionSDK.ts` — TypeScript SDK for signal packing/unpacking
+  - `TrionSDK.packSignal(status, coherence, threshold, blockNum, timestamp): bigint`
+  - `TrionSDK.unpackSignal(packed: bigint): { status, coherence, threshold, blockNum, timestamp }`
