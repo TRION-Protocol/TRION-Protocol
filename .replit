@@ -122,19 +122,3 @@ TRION_RELAYER_ADDRESS = "0xdbbf66cad621da3ec186d18b29a135d2a5d42d20"
 TRION_ORACLE_ADDRESS = "0x708193f93Fb897fbeA72e7e7D19237770F19E969"
 ARBITRUM_SEPOLIA_RPC = "https://arbitrum-sepolia-rpc.publicnode.com"
 TRION_V2_ORACLE_ADDRESS = "0x852365411bf700ba7257A93c134CBdE71A58d4E0"
-
-[[ports]]
-localPort = 8080
-externalPort = 80
-
-[[ports]]
-localPort = 8081
-externalPort = 8081
-
-[[ports]]
-localPort = 24875
-externalPort = 3000
-
-[[ports]]
-localPort = 24876
-externalPort = 3001
