@@ -34,10 +34,10 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
   const signalColor = data ? (SIGNAL_COLORS[data.signalName] ?? "text-primary") : "text-primary";
 
   return (
-    <div className="hud-border bg-card/60 p-6 flex flex-col gap-5 relative overflow-hidden">
+    <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-slate-900 to-black p-6 flex flex-col gap-5 relative overflow-hidden shadow-xl">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="bg-accent/20 p-1.5 rounded">
+        <div className="bg-accent/10 p-1.5 rounded-lg">
           <Link2 className="w-4 h-4 text-accent" />
         </div>
         <div>
@@ -46,7 +46,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
           </div>
           <div className="text-[10px] text-muted-foreground tracking-wide flex items-center gap-1.5">
             Arbitrum Sepolia · Live Contract Data
-            <span className="border border-accent/30 text-accent px-1 rounded text-[8px] uppercase tracking-widest">V2</span>
+            <span className="border border-emerald-500/40 text-emerald-400 px-1.5 rounded text-[8px] uppercase tracking-widest font-bold">V3</span>
           </div>
         </div>
         <div className="ml-auto">
@@ -58,7 +58,11 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
           )}
           {data && !isLoading && (
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <motion.div
+                className="w-2 h-2 rounded-full bg-accent"
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
               <span className="text-[10px] text-accent uppercase tracking-widest">Live</span>
             </div>
           )}
@@ -88,10 +92,10 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
             key={data.blockNumber}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 gap-4"
+            className="grid grid-cols-2 gap-3"
           >
             {/* C(t) Score */}
-            <div className="col-span-2 border border-primary/20 bg-black/30 p-4 text-center">
+            <div className="col-span-2 rounded-xl border border-primary/10 bg-black/30 p-4 text-center">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                 C(t) Coherence Score
               </div>
@@ -104,7 +108,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
             </div>
 
             {/* μ(t) / Θ(t) Baseline */}
-            <div className="border border-primary/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-primary/10 bg-black/20 p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                 Θ(t) Threshold
               </div>
@@ -114,7 +118,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
             </div>
 
             {/* Network State */}
-            <div className="border border-primary/10 bg-black/20 p-3 flex flex-col justify-between">
+            <div className="rounded-xl border border-primary/10 bg-black/20 p-3 flex flex-col justify-between">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                 Network State
               </div>
@@ -130,7 +134,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
             </div>
 
             {/* Block Number */}
-            <div className="border border-primary/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-primary/10 bg-black/20 p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                 Last Relayed Block
               </div>
@@ -140,7 +144,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
             </div>
 
             {/* V2 Signal type */}
-            <div className="border border-primary/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-primary/10 bg-black/20 p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                 Signal
               </div>
@@ -152,7 +156,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
 
             {/* Contract Address */}
             {data.contractAddress && (
-              <div className="col-span-2 border border-primary/10 bg-black/20 p-3 flex items-center justify-between">
+              <div className="col-span-2 rounded-xl border border-primary/10 bg-black/20 p-3 flex items-center justify-between">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
                   Oracle V2 Contract
                 </div>

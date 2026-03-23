@@ -51,7 +51,7 @@ export function Dashboard() {
     <div className="min-h-screen flex flex-col relative pb-20">
       <div className="scanline" />
       
-      <Header blockNumber={data.block_number} timestamp={data.updated_at} />
+      <Header blockNumber={data.block_number} timestamp={data.updated_at} isSafe={!data.alert} />
       <StatusBanner data={data} />
 
       <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 md:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">

@@ -26,6 +26,7 @@ const config: HardhatUserConfig = {
     arbitrumSepolia: {
       url: SEPOLIA_RPC,
       accounts: [RELAYER_PRIVATE_KEY],
+      gasPrice: 100000000, // 0.1 gwei — ensures sequencer acceptance
     },
   },
 };

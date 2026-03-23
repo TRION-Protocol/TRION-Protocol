@@ -136,7 +136,7 @@ export function FirewallPanel({ liveCt, liveTheta }: { liveCt?: number; liveThet
             L2 Execution Firewall
           </div>
           <div className="text-[10px] text-muted-foreground tracking-wide">
-            Pre-execution anomaly interception · TRION v1.0
+            Pre-execution anomaly interception · TRION V3.0
           </div>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
