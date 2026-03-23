@@ -6,6 +6,7 @@ import { FeatureCard } from "@/components/FeatureCard";
 import { CoherenceDisplay } from "@/components/CoherenceDisplay";
 import { OracleCard } from "@/components/OracleCard";
 import { FirewallPanel } from "@/components/FirewallPanel";
+import { TRIONAttackSimulator } from "@/components/TRIONAttackSimulator";
 import { formatNumber, formatInteger } from "@/lib/utils";
 import { Terminal, Activity } from "lucide-react";
 
@@ -122,6 +123,11 @@ export function Dashboard() {
         {/* Full-width bottom row: L2 Execution Firewall */}
         <section className="lg:col-span-12">
           <FirewallPanel liveCt={data.features.f9} liveTheta={data.theta} />
+        </section>
+
+        {/* Full-width: Live On-Chain Attack Simulator */}
+        <section className="lg:col-span-12">
+          <TRIONAttackSimulator />
         </section>
 
       </main>
