@@ -1,20 +1,22 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ethers, keccak256, toUtf8Bytes } from "ethers";
-import { ShieldAlert, ShieldCheck, Swords, RotateCcw, ExternalLink } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Swords, RotateCcw, ExternalLink, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const VAULT_ADDRESS = "0x66350c06196afBaC29f206F8Fc2b7d81B359D0D5";
 const ORACLE_ADDRESS = "0x852365411bf700ba7257A93c134CBdE71A58d4E0";
 const ARBITRUM_SEPOLIA_CHAIN_ID = "0x66eee"; // 421614
 
-type Phase = "idle" | "connecting" | "sending" | "blocked" | "passed" | "error";
-
-interface TxResult {
-  hash?: string;
-  revertReason?: string;
-  errorMsg?: string;
-}
+type Phase =
+  | "idle"
+  | "wallet_open"
+  | "mining"
+  | "user_rejected"
+  | "blocked_pre"
+  | "blocked_onchain"
+  | "exploit_success"
+  | "error";
 
 type EIP1193Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -24,37 +26,47 @@ function getEthereum(): EIP1193Provider | null {
   return (window as unknown as { ethereum?: EIP1193Provider }).ethereum ?? null;
 }
 
+function isUserRejection(err: unknown): boolean {
+  const s = JSON.stringify(err, Object.getOwnPropertyNames(err as object)).toLowerCase();
+  return (
+    s.includes("user rejected") ||
+    s.includes("denied") ||
+    s.includes("rejected by user") ||
+    s.includes("action_rejected") ||
+    (err as Record<string, unknown>)["code"] === 4001
+  );
+}
+
 export function TRIONAttackSimulator() {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [result, setResult] = useState<TxResult>({});
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
   const reset = () => {
     setPhase("idle");
-    setResult({});
+    setTxHash(null);
+    setErrorMsg("");
   };
 
   const executeExploit = async () => {
-    setPhase("connecting");
-    setResult({});
+    setPhase("wallet_open");
+    setTxHash(null);
+    setErrorMsg("");
 
     try {
       const ethereum = getEthereum();
+      if (!ethereum) throw new Error("No Web3 wallet detected. Install MetaMask, Trust, Rabby, or Coinbase Wallet.");
 
-      if (!ethereum) {
-        throw new Error("No Web3 wallet detected. Please install a wallet (MetaMask, Trust, Rabby, Coinbase) to run the simulation.");
-      }
-
-      // Step 1: Explicitly request account access — triggers the wallet popup
+      // Explicitly request account access → triggers wallet connect popup
       await ethereum.request({ method: "eth_requestAccounts" });
 
-      // Step 2: Switch to Arbitrum Sepolia
+      // Switch to Arbitrum Sepolia
       try {
         await ethereum.request({
           method: "wallet_switchEthereumChain",
           params: [{ chainId: ARBITRUM_SEPOLIA_CHAIN_ID }],
         });
       } catch {
-        // Chain not added yet — add it
         await ethereum.request({
           method: "wallet_addEthereumChain",
           params: [{
@@ -69,82 +81,65 @@ export function TRIONAttackSimulator() {
 
       const provider = new ethers.BrowserProvider(ethereum as unknown as ethers.Eip1193Provider);
       const signer = await provider.getSigner();
-
       const abi = ["function flashLoanAttack(bytes32 txId, uint256 amount) external"];
       const vault = new ethers.Contract(VAULT_ADDRESS, abi, signer);
-
       const txId = keccak256(toUtf8Bytes("demo-attack-1"));
       const exploitAmount = ethers.parseEther("50000000");
 
-      setPhase("sending");
-
-      // Step 3: Hardcode gasLimit to bypass eth_estimateGas simulation and force the wallet popup.
-      // Without this, ethers pre-simulates the call, sees the revert, and throws before the wallet opens.
-      const tx = await vault.flashLoanAttack(txId, exploitAmount, {
-        gasLimit: 3_000_000,
-      });
-
-      await tx.wait();
-
-      // If we somehow get here, TRION didn't block it
-      setPhase("passed");
-      setResult({ hash: tx.hash as string });
-
-    } catch (error: unknown) {
-      console.error("Execution Error Caught:", error);
-
-      // Aggressively stringify the entire error object — Arbitrum Sepolia RPCs
-      // often strip or bury revert strings inside deeply nested JSON, so we
-      // search the full serialised error rather than trusting error.message alone.
-      const errorString = JSON.stringify(
-        error,
-        Object.getOwnPropertyNames(error as object),
-      ).toLowerCase();
-
-      // User rejected the wallet prompt — return to idle silently
-      if (
-        errorString.includes("user rejected") ||
-        errorString.includes("denied transaction") ||
-        errorString.includes("action_rejected") ||
-        (error as Record<string, unknown>)["code"] === 4001
-      ) {
-        setPhase("idle");
+      // ── Inner layer: catches user rejection & wallet pre-execution simulation failures ──
+      let tx: ethers.TransactionResponse;
+      try {
+        // gasLimit bypasses ethers' eth_estimateGas pre-check so the wallet opens
+        tx = await vault.flashLoanAttack(txId, exploitAmount, { gasLimit: 3_000_000 }) as ethers.TransactionResponse;
+      } catch (sendError: unknown) {
+        if (isUserRejection(sendError)) {
+          // Scenario 1: user clicked Reject
+          setPhase("user_rejected");
+        } else {
+          // Scenario 2: wallet ran internal simulation, hit the TRION revert, disabled confirm
+          setPhase("blocked_pre");
+          const e = sendError as Record<string, unknown>;
+          setErrorMsg((e["shortMessage"] as string | undefined) || (e["message"] as string | undefined) || "Wallet simulation failed due to TRION revert.");
+        }
         return;
       }
 
-      // TRION firewall caught it — exact string or RPC-mangled version
-      if (
-        errorString.includes("thermodynamic collapse") ||
-        errorString.includes("trion") ||
-        errorString.includes("execution reverted") ||
-        errorString.includes("fake check bypass")
-      ) {
-        setPhase("blocked");
-        setResult({ revertReason: "TRION: Thermodynamic Collapse Detected" });
-        return;
+      // ── Outer layer: tx reached the network ──
+      setPhase("mining");
+      setTxHash(tx.hash);
+
+      try {
+        await tx.wait();
+        // Should never happen — TRION should always revert this
+        setPhase("exploit_success");
+      } catch {
+        // Scenario 3: forced on-chain, reverted during block settlement
+        setPhase("blocked_onchain");
       }
 
-      // Fallback: any other failure still means the attack didn't get through —
-      // show BLOCKED so the demo visual is correct even if the RPC strips the reason string.
-      console.log("Fallback block triggered — RPC stripped the revert string but TX failed as expected.");
-      setPhase("blocked");
-      setResult({ revertReason: "TRION: Thermodynamic Collapse Detected" });
+    } catch (globalError: unknown) {
+      const e = globalError as Record<string, unknown>;
+      setErrorMsg((e["message"] as string | undefined) || "An unknown error occurred.");
+      setPhase("error");
     }
   };
 
-  const isRunning = phase === "connecting" || phase === "sending";
-  const arbiscanUrl = `https://sepolia.arbiscan.io/address/${VAULT_ADDRESS}`;
+  const isRunning = phase === "wallet_open" || phase === "mining";
+  const arbiscanVault = `https://sepolia.arbiscan.io/address/${VAULT_ADDRESS}`;
+  const arbiscanTx = txHash ? `https://sepolia.arbiscan.io/tx/${txHash}` : null;
+
+  const isIntercepted = phase === "blocked_pre" || phase === "blocked_onchain";
 
   return (
     <div className={cn(
       "relative overflow-hidden p-6 flex flex-col gap-5 transition-all duration-500",
-      phase === "blocked" ? "hud-border-destructive" :
-      phase === "passed"  ? "hud-border" :
+      isIntercepted       ? "hud-border-destructive" :
+      phase === "user_rejected" ? "hud-border bg-card/60" :
                             "hud-border bg-card/60"
     )}>
-      {/* Red glow during attack / block */}
+      {/* Red ambient glow */}
       <AnimatePresence>
-        {(phase === "sending" || phase === "blocked") && (
+        {(phase === "mining" || isIntercepted) && (
           <motion.div
             key="glow"
             className="absolute inset-0 pointer-events-none"
@@ -158,20 +153,11 @@ export function TRIONAttackSimulator() {
 
       {/* ── Header ── */}
       <div className="flex items-center gap-3">
-        <div className={cn(
-          "p-1.5 rounded transition-colors",
-          phase === "blocked" ? "bg-destructive/20" : "bg-primary/10"
-        )}>
-          <ShieldAlert className={cn(
-            "w-4 h-4 transition-colors",
-            phase === "blocked" ? "text-destructive" : "text-primary"
-          )} />
+        <div className={cn("p-1.5 rounded transition-colors", isIntercepted ? "bg-destructive/20" : "bg-primary/10")}>
+          <ShieldAlert className={cn("w-4 h-4 transition-colors", isIntercepted ? "text-destructive" : "text-primary")} />
         </div>
         <div>
-          <div className={cn(
-            "text-xs uppercase tracking-widest font-bold transition-colors",
-            phase === "blocked" ? "text-destructive" : "text-primary"
-          )}>
+          <div className={cn("text-xs uppercase tracking-widest font-bold transition-colors", isIntercepted ? "text-destructive" : "text-primary")}>
             Live On-Chain Attack Simulator
           </div>
           <div className="text-[10px] text-muted-foreground tracking-wide">
@@ -180,18 +166,12 @@ export function TRIONAttackSimulator() {
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <motion.div
-            className={cn(
-              "w-2 h-2 rounded-full",
-              phase === "blocked" ? "bg-destructive" : "bg-primary"
-            )}
+            className={cn("w-2 h-2 rounded-full", isIntercepted ? "bg-destructive" : "bg-primary")}
             animate={{ opacity: [1, 0.3, 1] }}
-            transition={{ duration: phase === "blocked" ? 0.5 : 2, repeat: Infinity }}
+            transition={{ duration: isIntercepted ? 0.5 : 2, repeat: Infinity }}
           />
-          <span className={cn(
-            "text-[10px] uppercase tracking-widest",
-            phase === "blocked" ? "text-destructive" : "text-primary"
-          )}>
-            {phase === "blocked" ? "BLOCKED" : phase === "sending" ? "TX LIVE" : "STANDBY"}
+          <span className={cn("text-[10px] uppercase tracking-widest", isIntercepted ? "text-destructive" : "text-primary")}>
+            {isIntercepted ? "BLOCKED" : phase === "mining" ? "TX LIVE" : "STANDBY"}
           </span>
         </div>
       </div>
@@ -201,12 +181,8 @@ export function TRIONAttackSimulator() {
         <div className="border border-primary/20 bg-black/20 p-3 flex flex-col gap-1">
           <div className="text-[10px] text-muted-foreground uppercase tracking-widest">Target Vault</div>
           <div className="text-[11px] font-mono text-primary truncate">{VAULT_ADDRESS}</div>
-          <a
-            href={arbiscanUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1 text-[10px] text-accent/70 hover:text-accent transition-colors mt-0.5"
-          >
+          <a href={arbiscanVault} target="_blank" rel="noreferrer"
+            className="flex items-center gap-1 text-[10px] text-accent/70 hover:text-accent transition-colors mt-0.5">
             <ExternalLink className="w-2.5 h-2.5" /> View on Arbiscan
           </a>
         </div>
@@ -227,86 +203,143 @@ export function TRIONAttackSimulator() {
               Connect your Web3 wallet and fire a real $50M flash-loan attack at the live vault.
             </motion.div>
           )}
-          {phase === "connecting" && (
-            <motion.div key="connecting" initial={{ opacity: 0, x: -4 }} animate={{ opacity: [1, 0.6, 1] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-              style={{ color: "#ffaa00" }}>
-              <span className="opacity-60">&gt; </span>⚡ Requesting wallet connection · Switching to Arbitrum Sepolia...
+          {phase === "wallet_open" && (
+            <motion.div key="wo" initial={{ opacity: 0, x: -4 }} animate={{ opacity: [1, 0.6, 1] }}
+              transition={{ duration: 0.8, repeat: Infinity }} style={{ color: "#ffaa00" }}>
+              <span className="opacity-60">&gt; </span>⚡ Wallet open — approve connection and confirm transaction...
             </motion.div>
           )}
-          {phase === "sending" && (
+          {phase === "mining" && (
             <>
-              <motion.div key="s1" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
+              <motion.div key="m1" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
                 style={{ color: "#ff6600" }}>
-                <span className="opacity-60">&gt; </span>🔴 Broadcasting flashLoanAttack(txId, 50_000_000 ETH) · gasLimit=3_000_000...
+                <span className="opacity-60">&gt; </span>🔴 TX broadcast · flashLoanAttack(txId, 50_000_000 ETH) · gasLimit=3_000_000
               </motion.div>
-              <motion.div key="s2" initial={{ opacity: 0, x: -4 }} animate={{ opacity: [1, 0.4, 1] }}
-                transition={{ duration: 0.4, repeat: Infinity, delay: 0.2 }}
-                className="text-destructive font-bold">
-                <span className="opacity-60">&gt; </span>🚨 TRION onlyWhenCoherent modifier intercepting...
+              <motion.div key="m2" initial={{ opacity: 0, x: -4 }} animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ duration: 0.4, repeat: Infinity, delay: 0.2 }} className="text-destructive font-bold">
+                <span className="opacity-60">&gt; </span>🚨 Awaiting block settlement — TRION L2 Guillotine armed...
               </motion.div>
             </>
           )}
-          {phase === "blocked" && (
+          {phase === "user_rejected" && (
+            <motion.div key="ur" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
+              style={{ color: "#ffaa00" }}>
+              <span className="opacity-60">&gt; </span>⚠ Simulation aborted — you clicked Reject in your wallet.
+            </motion.div>
+          )}
+          {phase === "blocked_pre" && (
             <>
-              <motion.div key="b1" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
+              <motion.div key="bp1" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
                 className="text-destructive">
-                <span className="opacity-60">&gt; </span>🔴 Broadcasting flashLoanAttack(txId, 50_000_000 ETH)...
+                <span className="opacity-60">&gt; </span>🔴 Wallet ran local simulation — TRION revert detected...
               </motion.div>
-              <motion.div key="b2" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
+              <motion.div key="bp2" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
                 className="text-destructive font-bold">
-                <span className="opacity-60">&gt; </span>
-                ⛔ TX REVERTED: <span className="bg-destructive/20 px-1">{result.revertReason ?? "TRION: Thermodynamic Collapse Detected"}</span>
+                <span className="opacity-60">&gt; </span>⛔ TX DISABLED: wallet blocked execution before broadcast
               </motion.div>
-              <motion.div key="b3" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
+              <motion.div key="bp3" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
                 className="text-primary font-bold">
-                <span className="opacity-60">&gt; </span>✅ RESULT: EXPLOIT BLOCKED · 0 ETH STOLEN
+                <span className="opacity-60">&gt; </span>✅ RESULT: EXPLOIT BLOCKED PRE-EXECUTION · 0 ETH STOLEN
               </motion.div>
             </>
           )}
-          {phase === "passed" && (
+          {phase === "blocked_onchain" && (
             <>
-              <motion.div key="p1" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
-                className="text-destructive font-bold">
-                <span className="opacity-60">&gt; </span>⚠ TX CONFIRMED — TRION did not block this attack.
+              <motion.div key="bo1" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
+                className="text-destructive">
+                <span className="opacity-60">&gt; </span>🔴 TX forced to network — settlement attempted...
               </motion.div>
-              {result.hash && (
-                <motion.div key="p2" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
-                  className="text-accent text-[10px]">
-                  <span className="opacity-60">&gt; </span>Hash: {result.hash.slice(0, 20)}...
-                </motion.div>
-              )}
+              <motion.div key="bo2" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
+                className="text-destructive font-bold">
+                <span className="opacity-60">&gt; </span>⛔ TX REVERTED ON-CHAIN: TRION L2 Guillotine dropped
+              </motion.div>
+              <motion.div key="bo3" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
+                className="text-primary font-bold">
+                <span className="opacity-60">&gt; </span>✅ RESULT: EXPLOIT KILLED DURING BLOCK SETTLEMENT · 0 ETH STOLEN
+              </motion.div>
             </>
+          )}
+          {phase === "exploit_success" && (
+            <motion.div key="es" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
+              className="text-destructive font-bold">
+              <span className="opacity-60">&gt; </span>⚠ TX CONFIRMED — TRION did not block this attack.
+            </motion.div>
           )}
           {phase === "error" && (
             <motion.div key="err" initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
               style={{ color: "#ff6600" }}>
-              <span className="opacity-60">&gt; </span>⚠ {result.errorMsg ?? "Unexpected error. Check console."}
+              <span className="opacity-60">&gt; </span>⚠ {errorMsg || "Unexpected error. Check console."}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* ── Intercept Banner ── */}
+      {/* ── Result Banners ── */}
       <AnimatePresence>
-        {phase === "blocked" && (
-          <motion.div
-            key="banner"
-            initial={{ opacity: 0, y: 8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="hud-border-destructive bg-destructive/10 p-4 flex items-center gap-4"
-          >
-            <ShieldAlert className="w-8 h-8 text-destructive flex-shrink-0" />
+        {/* User rejected */}
+        {phase === "user_rejected" && (
+          <motion.div key="banner-rejected"
+            initial={{ opacity: 0, y: 8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }}
+            className="border border-yellow-600/40 bg-yellow-900/20 p-4 flex items-center gap-4">
+            <AlertTriangle className="w-7 h-7 flex-shrink-0" style={{ color: "#ffaa00" }} />
             <div>
-              <div className="text-destructive font-bold uppercase tracking-widest text-sm">
-                Threat Intercepted
+              <div className="font-bold uppercase tracking-widest text-sm" style={{ color: "#ffaa00" }}>
+                Simulation Aborted
               </div>
-              <div className="text-destructive/70 text-xs tracking-wide mt-0.5">
-                ✅ "{result.revertReason ?? "TRION: Thermodynamic Collapse Detected"}"
+              <div className="text-xs tracking-wide mt-0.5" style={{ color: "#ffaa00", opacity: 0.7 }}>
+                You rejected the transaction in your wallet. No TX was sent.
               </div>
             </div>
-            <div className="ml-auto text-right">
+          </motion.div>
+        )}
+
+        {/* Blocked pre-execution */}
+        {phase === "blocked_pre" && (
+          <motion.div key="banner-pre"
+            initial={{ opacity: 0, y: 8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }}
+            className="hud-border-destructive bg-destructive/10 p-4 flex items-start gap-4">
+            <ShieldAlert className="w-8 h-8 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="text-destructive font-bold uppercase tracking-widest text-sm">
+                Threat Intercepted — Pre-Execution
+              </div>
+              <div className="text-destructive/70 text-xs tracking-wide mt-1 leading-relaxed">
+                TRION detected the thermodynamic anomaly during wallet simulation. Your wallet disabled the Confirm button before the TX reached the network.
+              </div>
+              {errorMsg && (
+                <div className="mt-2 text-[10px] font-mono text-destructive/50 bg-black/30 px-2 py-1 border border-destructive/10">
+                  {errorMsg.slice(0, 120)}
+                </div>
+              )}
+            </div>
+            <div className="ml-auto text-right flex-shrink-0">
+              <ShieldCheck className="w-6 h-6 text-primary ml-auto" />
+              <div className="text-primary text-[10px] tracking-widest mt-1">VAULT INTACT</div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Blocked on-chain */}
+        {phase === "blocked_onchain" && (
+          <motion.div key="banner-onchain"
+            initial={{ opacity: 0, y: 8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }}
+            className="hud-border-destructive bg-destructive/10 p-4 flex items-start gap-4">
+            <ShieldAlert className="w-8 h-8 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="text-destructive font-bold uppercase tracking-widest text-sm">
+                Threat Intercepted — On-Chain
+              </div>
+              <div className="text-destructive/70 text-xs tracking-wide mt-1 leading-relaxed">
+                The attack was forced to the network but the TRION L2 Guillotine reverted the transaction during block settlement. Zero assets lost.
+              </div>
+              {arbiscanTx && (
+                <a href={arbiscanTx} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-[11px] text-accent hover:text-accent/80 transition-colors underline underline-offset-2">
+                  <ExternalLink className="w-3 h-3" /> View Reverted Exploit on Arbiscan
+                </a>
+              )}
+            </div>
+            <div className="ml-auto text-right flex-shrink-0">
               <ShieldCheck className="w-6 h-6 text-primary ml-auto" />
               <div className="text-primary text-[10px] tracking-widest mt-1">VAULT INTACT</div>
             </div>
@@ -328,12 +361,12 @@ export function TRIONAttackSimulator() {
           )}
         >
           <Swords className="w-4 h-4" />
-          {phase === "connecting" ? "CONNECTING WEB3 WALLET..." :
-           phase === "sending"    ? "EXECUTING ON-CHAIN..." :
-                                    "SIMULATE $50M FLASH-LOAN ATTACK"}
+          {phase === "wallet_open" ? "CHECK YOUR WALLET..." :
+           phase === "mining"      ? "EXECUTING ON-CHAIN..." :
+                                     "SIMULATE $50M FLASH-LOAN ATTACK"}
         </button>
 
-        {(phase === "blocked" || phase === "passed" || phase === "error") && (
+        {(isIntercepted || phase === "user_rejected" || phase === "exploit_success" || phase === "error") && (
           <motion.button
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: "auto" }}

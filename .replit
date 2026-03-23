@@ -87,8 +87,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8081 pnpm --filter @workspace/api-server run dev"
-waitForPort = 8081
+args = "PORT=3001 pnpm --filter @workspace/api-server run dev"
 
 [[workflows.workflow]]
 name = "Dashboard"
@@ -99,8 +98,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8080 BASE_PATH=/ pnpm --filter @workspace/trion-dashboard run dev"
-waitForPort = 8080
+args = "PORT=8080 BASE_PATH=/ API_PORT=3001 pnpm --filter @workspace/trion-dashboard run dev"
 
 [agent]
 stack = "PNPM_WORKSPACE"
