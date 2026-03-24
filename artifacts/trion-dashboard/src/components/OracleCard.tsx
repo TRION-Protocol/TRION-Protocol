@@ -73,7 +73,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
       {isLoading && !data && (
         <div className="flex flex-col items-center justify-center py-6 gap-3 text-muted-foreground">
           <Loader2 className="w-8 h-8 animate-spin opacity-40" />
-          <span className="text-xs uppercase tracking-widest">Querying V2 Relayer...</span>
+          <span className="text-xs uppercase tracking-widest">Querying V3 Relayer...</span>
         </div>
       )}
 
@@ -81,7 +81,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
       {isError && !data && (
         <div className="flex flex-col items-center justify-center py-4 gap-2 text-destructive/70">
           <XCircle className="w-8 h-8 opacity-60" />
-          <span className="text-xs uppercase tracking-widest">V2 Relayer Not Active</span>
+          <span className="text-xs uppercase tracking-widest">V3 Relayer Not Active</span>
         </div>
       )}
 
@@ -143,7 +143,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
               </div>
             </div>
 
-            {/* V2 Signal type */}
+            {/* V3 Signal type */}
             <div className="rounded-xl border border-primary/10 bg-black/20 p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                 Signal
@@ -158,7 +158,7 @@ export function OracleCard({ data, isLoading, isError }: OracleCardProps) {
             {data.contractAddress && (
               <div className="col-span-2 rounded-xl border border-primary/10 bg-black/20 p-3 flex items-center justify-between">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                  Oracle V2 Contract
+                  Oracle V3 Contract
                 </div>
                 <AddressChip address={data.contractAddress} />
               </div>

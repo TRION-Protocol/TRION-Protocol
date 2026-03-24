@@ -20,7 +20,7 @@ import fs from "fs";
 import { ethers } from "ethers";
 
 const JSON_PATH        = "/tmp/trion_latest.json";
-const V3_CACHE_PATH    = "/tmp/trion_v2_oracle.json";
+const V3_CACHE_PATH    = "/tmp/trion_v3_oracle.json";
 const POLL_INTERVAL_MS = 12_000;
 
 // ── V3 Oracle ABI (only the functions we call / read) ────────────────────────

@@ -20,11 +20,11 @@ export interface OracleData {
 }
 
 async function fetchOracleData(): Promise<OracleData> {
-  const res = await fetch(`${BASE}/api/trion/v2oracle`);
-  if (!res.ok) throw new Error(`V2 oracle API ${res.status}`);
+  const res = await fetch(`${BASE}/api/trion/v3oracle`);
+  if (!res.ok) throw new Error(`V3 oracle API ${res.status}`);
   const d = await res.json();
   return {
-    version:          d.version ?? "v2",
+    version:          d.version ?? "v3",
     oracleAddress:    d.oracleAddress ?? null,
     blockNumber:      d.blockNumber ?? 0,
     txId:             d.txId ?? "0x",
@@ -43,7 +43,7 @@ async function fetchOracleData(): Promise<OracleData> {
 
 export function useOracleData() {
   return useQuery<OracleData, Error>({
-    queryKey: ["oracle-data-v2"],
+    queryKey: ["oracle-data-v3"],
     queryFn: fetchOracleData,
     refetchInterval: 15_000,
     retry: 3,

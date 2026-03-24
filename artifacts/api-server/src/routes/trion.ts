@@ -4,7 +4,7 @@ import fs from "fs";
 const router: IRouter = Router();
 
 const JSON_PATH     = "/tmp/trion_latest.json";
-const V2_CACHE_PATH = "/tmp/trion_v2_oracle.json";
+const V3_CACHE_PATH = "/tmp/trion_v3_oracle.json";
 
 // ── GET /api/trion/latest — L0 raw block data ──────────────────────────────
 router.get("/trion/latest", (_req, res) => {
@@ -32,18 +32,18 @@ router.get("/trion/latest", (_req, res) => {
   }
 });
 
-// ── GET /api/trion/v2oracle — Latest V2 relayer state (signed signal cache) ─
-router.get("/trion/v2oracle", (_req, res) => {
+// ── GET /api/trion/v3oracle — Latest V3 relayer state (signed signal cache) ─
+router.get("/trion/v3oracle", (_req, res) => {
   let raw: string;
   try {
-    raw = fs.readFileSync(V2_CACHE_PATH, "utf-8");
+    raw = fs.readFileSync(V3_CACHE_PATH, "utf-8");
   } catch (err: unknown) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {
-      res.status(503).json({ error: "V2 relayer not yet active. Awaiting first signal publish." });
+      res.status(503).json({ error: "V3 relayer not yet active. Awaiting first signal publish." });
     } else {
-      console.error("[API] Failed to read V2 oracle cache:", err);
-      res.status(500).json({ error: "Failed to read V2 oracle state." });
+      console.error("[API] Failed to read V3 oracle cache:", err);
+      res.status(500).json({ error: "Failed to read V3 oracle state." });
     }
     return;
   }
@@ -52,7 +52,7 @@ router.get("/trion/v2oracle", (_req, res) => {
     const data = JSON.parse(raw);
     res.json(data);
   } catch {
-    res.status(503).json({ error: "V2 cache is mid-write. Retry shortly." });
+    res.status(503).json({ error: "V3 cache is mid-write. Retry shortly." });
   }
 });
 
