@@ -5,7 +5,7 @@
  * and pushes 125 fresh signals with 2-of-N consensus signatures.
  *
  * Fixes applied vs. the original template:
- *  1. Signing hash matches the contract exactly — no extra suffix string
+ *  1. Signing hash matches the contract exactly — no extra "TRION_V3" suffix
  *     (that would cause "Invalid validator" on every signal).
  *  2. Signatures are sorted ascending by signer address before submission
  *     (contract enforces `signer > lastSigner` ordering).
@@ -103,7 +103,7 @@ async function main() {
     const w1 = wallets[idxA];
     const w2 = wallets[idxB];
 
-    // Fresh txId — unique per signal and per run (timestamp + index)
+    // Fresh txId — unique per signal and per run
     const txId = ethers.id(`V3_OVERWRITE_${Date.now()}_${i}`);
 
     const blockNum  = BigInt(await provider.getBlockNumber());
@@ -112,6 +112,7 @@ async function main() {
 
     // ── Correct inner hash — must match contract exactly ─────────────────
     // Contract: keccak256(abi.encodePacked(block.chainid, address(this), txId, packedData))
+    // NO extra suffix string — that would corrupt the signer address recovery.
     const innerHash = ethers.keccak256(
       ethers.solidityPacked(
         ["uint256", "address", "bytes32", "uint256"],
