@@ -9,9 +9,21 @@ contract TRIONProtectedVault is TRIONGuardV3, Ownable {
 
     constructor(address _oracle) TRIONGuardV3(_oracle) Ownable(msg.sender) {}
 
-    function flashLoan(address receiver, uint256 amount) external onlyWhenCoherent {
-        // Core logic executes ONLY if TRION oracle confirms thermodynamic stability
-        // Flash loan logic goes here
+    // Attack Vector 1: Flash Loan / Price Oracle Manipulation [MF_TYPE_3]
+    function flashLoanAttack(address targetToken, uint256 amount) external onlyWhenCoherent {
+        balances[targetToken] += amount;
+    }
+
+    // Attack Vector 2: Sybil Liquidity Drain [MF_TYPE_4]
+    function sybilLiquidityDrain(uint256 poolId, address[] calldata sybilWallets) external onlyWhenCoherent {
+        for (uint256 i = 0; i < sybilWallets.length; i++) {
+            balances[sybilWallets[i]] += poolId;
+        }
+    }
+
+    // Attack Vector 3: Governance Hostile Takeover [MF_TYPE_5]
+    function governanceHostileTakeover(bytes32 proposalHash) external onlyWhenCoherent {
+        balances[msg.sender] = uint256(proposalHash);
     }
 
     function toggleFirewall(bool _status) external onlyOwner {

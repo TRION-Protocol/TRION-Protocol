@@ -7,6 +7,7 @@ import { CoherenceDisplay } from "@/components/CoherenceDisplay";
 import { OracleCard } from "@/components/OracleCard";
 import { FirewallPanel } from "@/components/FirewallPanel";
 import { TRIONAttackSimulator } from "@/components/TRIONAttackSimulator";
+import { TRIONAttackMatrix } from "@/components/TRIONAttackMatrix";
 import { formatNumber, formatInteger } from "@/lib/utils";
 import { Terminal, Activity } from "lucide-react";
 
@@ -128,6 +129,11 @@ export function Dashboard() {
         {/* Full-width: Live On-Chain Attack Simulator */}
         <section className="lg:col-span-12">
           <TRIONAttackSimulator />
+        </section>
+
+        {/* Full-width: Live-Fire Attack Matrix (Multi-Vector) */}
+        <section className="lg:col-span-12">
+          <TRIONAttackMatrix />
         </section>
 
       </main>

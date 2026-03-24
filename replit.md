@@ -221,8 +221,21 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 | Contract | Address |
 |----------|---------|
 | TRIONOracleV3 | `0xb819c63c02Ed5aB49017C0f3f2568A14624658b3` |
-| TRIONProtectedVault (V3) | `0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D` |
+| TRIONProtectedVault (V3, original) | `0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D` |
+| TRIONProtectedVault (Attack Matrix) | `0x91D7D8bc873D13B75E329e62D9dDA4EfF1b9f7E5` |
 
 - Explorer (Oracle): https://sepolia.arbiscan.io/address/0xb819c63c02Ed5aB49017C0f3f2568A14624658b3
-- Explorer (Vault): https://sepolia.arbiscan.io/address/0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D
-- Deploy script: `hardhat-scripts/deploy_v3.ts`
+- Explorer (Vault original): https://sepolia.arbiscan.io/address/0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D
+- Explorer (Vault matrix): https://sepolia.arbiscan.io/address/0x91D7D8bc873D13B75E329e62D9dDA4EfF1b9f7E5
+- Deploy script (V3): `hardhat-scripts/deploy_v3.ts`
+- Deploy script (matrix): `hardhat-scripts/deploy_vault_matrix.ts`
+
+### Attack Matrix — 3 Protected Functions (TRIONProtectedVault)
+
+| Function | Attack Type | Tag |
+|----------|------------|-----|
+| `flashLoanAttack(address, uint256)` | Flash Loan Oracle Manipulation | MF_TYPE_3 |
+| `sybilLiquidityDrain(uint256, address[])` | Sybil Liquidity Drain | MF_TYPE_4 |
+| `governanceHostileTakeover(bytes32)` | Governance Hostile Takeover | MF_TYPE_5 |
+
+All three are gated by `onlyWhenCoherent`. The UI (`TRIONAttackMatrix.tsx`) computes the TRION txId fingerprint client-side (matching the on-chain derivation) before firing the exploit.
