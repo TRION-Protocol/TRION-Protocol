@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const VAULT_ADDRESS  = "0x91D7D8bc873D13B75E329e62D9dDA4EfF1b9f7E5";
+const VAULT_ADDRESS  = "0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D";
 const ORACLE_ADDRESS = "0xb819c63c02Ed5aB49017C0f3f2568A14624658b3";
 const ARBITRUM_SEPOLIA_CHAIN_ID = "0x66eee"; // 421614
 
