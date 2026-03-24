@@ -10,7 +10,7 @@ name = "react-vite"
 version = "1.0.0"
 
 [[services]]
-localPort = 24875
+localPort = 8080
 name = "web"
 paths = ["/"]
 
@@ -18,8 +18,9 @@ paths = ["/"]
 run = "pnpm --filter @workspace/trion-dashboard run dev"
 
 [services.env]
-PORT = "24875"
+PORT = "8080"
 BASE_PATH = "/"
+API_PORT = "3001"
 
 [services.production]
 build = ["pnpm", "--filter", "@workspace/trion-dashboard", "run", "build"]

@@ -37,14 +37,6 @@ args = "TRION L0 Daemon"
 task = "workflow.run"
 args = "TRION V2 Relayer"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "API Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Dashboard"
-
 [[workflows.workflow]]
 name = "Bootstrap V2"
 author = "agent"
@@ -77,28 +69,6 @@ args = "pnpm --filter @workspace/api-server run relay"
 
 [workflows.workflow.metadata]
 outputType = "console"
-
-[[workflows.workflow]]
-name = "API Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=3001 pnpm --filter @workspace/api-server run dev"
-
-[[workflows.workflow]]
-name = "Dashboard"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=8080 BASE_PATH=/ API_PORT=3001 pnpm --filter @workspace/trion-dashboard run dev"
 
 [agent]
 stack = "PNPM_WORKSPACE"
