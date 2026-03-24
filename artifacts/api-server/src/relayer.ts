@@ -20,7 +20,7 @@ import fs from "fs";
 import { ethers } from "ethers";
 
 const JSON_PATH       = "/tmp/trion_latest.json";
-const V2_CACHE_PATH   = "/tmp/trion_v2_oracle.json";
+const V2_CACHE_PATH   = "/tmp/trion_oracle.json";
 const POLL_INTERVAL_MS = 12_000;
 
 // ── V2 Oracle ABI (only the functions we call / read) ────────────────────────
@@ -105,17 +105,17 @@ async function relay() {
     process.env["ARBITRUM_SEPOLIA_RPC_URL"] ||
     "https://arbitrum-sepolia-rpc.publicnode.com";
 
-  const oracleAddress = process.env["TRION_V2_ORACLE_ADDRESS"] ||
-                        // Deployed 2026-03-22 to Arbitrum Sepolia — update if redeployed
-                        "0x852365411bf700ba7257A93c134CBdE71A58d4E0";
+  const oracleAddress = process.env["TRION_V3_ORACLE_ADDRESS"] ||
+                        // TRIONOracleV3 — deployed 2026-03-24 to Arbitrum Sepolia
+                        "0xb819c63c02Ed5aB49017C0f3f2568A14624658b3";
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const signer   = new ethers.Wallet(privateKey, provider);
 
-  console.log(`[RELAYER v2] Started   — signer   : ${signer.address}`);
-  console.log(`[RELAYER v2] RPC       : ${rpcUrl}`);
-  console.log(`[RELAYER v2] Oracle V2 : ${oracleAddress || "(address not set — sign-only mode)"}`);
-  console.log(`[RELAYER v2] Polling ${JSON_PATH} every ${POLL_INTERVAL_MS / 1000}s\n`);
+  console.log(`[RELAYER v3] Started   — signer   : ${signer.address}`);
+  console.log(`[RELAYER v3] RPC       : ${rpcUrl}`);
+  console.log(`[RELAYER v3] Oracle V3 : ${oracleAddress}`);
+  console.log(`[RELAYER v3] Polling ${JSON_PATH} every ${POLL_INTERVAL_MS / 1000}s\n`);
 
   let oracle: ethers.Contract | null = null;
   if (oracleAddress) {
@@ -133,7 +133,7 @@ async function relay() {
     const { block_number: blockNumber, features: { f9: ct }, theta, mu_t, is_stable, alert } = data;
 
     if (blockNumber <= lastRelayedBlock) {
-      console.log(`[RELAYER v2] Block ${blockNumber} already relayed — waiting`);
+      console.log(`[RELAYER v3] Block ${blockNumber} already relayed — waiting`);
       continue;
     }
 
@@ -153,7 +153,7 @@ async function relay() {
     const packedSignal = packSignal(signalType, ct, theta);
     const txId         = blockTxId(blockNumber);
 
-    console.log(`[RELAYER v2] Block ${blockNumber}`);
+    console.log(`[RELAYER v3] Block ${blockNumber}`);
     console.log(`             C(t)=${ct.toFixed(6)}  Θ(t)=${theta.toFixed(6)}  μ(t)=${mu_t.toFixed(6)}  stable=${is_stable}`);
     console.log(`             Signal: ${signalName} (type=${signalType})`);
     console.log(`             Packed: 0x${packedSignal.toString(16)}`);
@@ -164,7 +164,7 @@ async function relay() {
       ethers.solidityPacked(["bytes32", "uint256"], [txId, packedSignal])
     );
     const signature = await signer.signMessage(ethers.getBytes(msgHash));
-    console.log(`[RELAYER v2] Signature: ${signature}`);
+    console.log(`[RELAYER v3] Signature: ${signature}`);
 
     // ── Write V2 cache (dashboard API reads this) ──────────────────────────
     const cachePayload = {
@@ -185,26 +185,26 @@ async function relay() {
     try {
       fs.writeFileSync(V2_CACHE_PATH, JSON.stringify(cachePayload), "utf-8");
     } catch (err) {
-      console.error("[RELAYER v2] Failed to write cache:", err);
+      console.error("[RELAYER v3] Failed to write cache:", err);
     }
 
     // ── Publish on-chain ──────────────────────────────────────────────────
     if (oracle && oracleAddress) {
       try {
         const tx = await oracle.publishSignal(txId, packedSignal, signature);
-        console.log(`[RELAYER v2] Broadcast: ${tx.hash}`);
+        console.log(`[RELAYER v3] Broadcast: ${tx.hash}`);
         const receipt = await tx.wait(1);
-        console.log(`[RELAYER v2] Confirmed ✓ (block ${receipt?.blockNumber})`);
+        console.log(`[RELAYER v3] Confirmed ✓ (block ${receipt?.blockNumber})`);
       } catch (err: any) {
         const msg: string = err?.message ?? String(err);
         if (msg.includes("already been relayed") || msg.includes("execution reverted")) {
-          console.log(`[RELAYER v2] Signal already on-chain for block ${blockNumber} — skipping`);
+          console.log(`[RELAYER v3] Signal already on-chain for block ${blockNumber} — skipping`);
         } else {
-          console.error("[RELAYER v2] Broadcast failed:", msg.slice(0, 200));
+          console.error("[RELAYER v3] Broadcast failed:", msg.slice(0, 200));
         }
       }
     } else {
-      console.log("[RELAYER v2] Oracle address not set — signature produced but not broadcast");
+      console.log("[RELAYER v3] Oracle address not set — signature produced but not broadcast");
     }
 
     lastRelayedBlock = blockNumber;
@@ -213,6 +213,6 @@ async function relay() {
 }
 
 relay().catch((err) => {
-  console.error("[RELAYER v2] Fatal:", err);
+  console.error("[RELAYER v3] Fatal:", err);
   process.exit(1);
 });
