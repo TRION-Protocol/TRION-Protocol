@@ -1,15 +1,15 @@
 /**
- * TRION Protocol — V2 Trustless Relayer
+ * TRION Protocol — V3 Trustless Relayer
  *
  * Polls the L0 Rust indexer output every 12 s.
  * For each new block it:
  *   1. Determines signalType (SAFE / WARN / SILENCE) from C(t) vs Θ(t)
  *   2. Packs coherence + threshold + signalType into a 256-bit integer
  *   3. Signs the payload with EIP-191 personal_sign (ecrecover-compatible)
- *   4. Publishes the signed signal to TRIONOracleV2.publishSignal() on-chain
+ *   4. Publishes the signed signal to TRIONOracleV3.publishSignal() on-chain
  *   5. Writes a local state cache for the dashboard API to serve
  *
- * Packed signal layout (mirrors TRIONOracleV2.sol):
+ * Packed signal layout (mirrors TRIONOracleV3.sol):
  *   Bits   0-1  : signalType  (0=SAFE, 1=WARN, 2=SILENCE)
  *   Bits   2-16 : reserved
  *   Bits  17-48 : coherence   (scaled ×1e6, uint32)
@@ -19,12 +19,12 @@
 import fs from "fs";
 import { ethers } from "ethers";
 
-const JSON_PATH       = "/tmp/trion_latest.json";
-const V2_CACHE_PATH   = "/tmp/trion_oracle.json";
+const JSON_PATH        = "/tmp/trion_latest.json";
+const V3_CACHE_PATH    = "/tmp/trion_v2_oracle.json";
 const POLL_INTERVAL_MS = 12_000;
 
-// ── V2 Oracle ABI (only the functions we call / read) ────────────────────────
-const ORACLE_V2_ABI = [
+// ── V3 Oracle ABI (only the functions we call / read) ────────────────────────
+const ORACLE_V3_ABI = [
   "function publishSignal(bytes32 txId, uint256 packedSignal, bytes calldata signature) external",
   "function getSignal(bytes32 txId) view returns (uint256)",
   "function validators(address) view returns (bool)",
@@ -119,7 +119,7 @@ async function relay() {
 
   let oracle: ethers.Contract | null = null;
   if (oracleAddress) {
-    oracle = new ethers.Contract(oracleAddress, ORACLE_V2_ABI, signer);
+    oracle = new ethers.Contract(oracleAddress, ORACLE_V3_ABI, signer);
   }
 
   let lastRelayedBlock = 0;
@@ -159,16 +159,16 @@ async function relay() {
     console.log(`             Packed: 0x${packedSignal.toString(16)}`);
     console.log(`             TxId  : ${txId}`);
 
-    // ── Sign (EIP-191 personal_sign — matches ecrecover in TRIONGuardV2) ──
+    // ── Sign (EIP-191 personal_sign — matches ecrecover in TRIONGuardV3) ──
     const msgHash = ethers.keccak256(
       ethers.solidityPacked(["bytes32", "uint256"], [txId, packedSignal])
     );
     const signature = await signer.signMessage(ethers.getBytes(msgHash));
     console.log(`[RELAYER v3] Signature: ${signature}`);
 
-    // ── Write V2 cache (dashboard API reads this) ──────────────────────────
+    // ── Write V3 cache (dashboard API reads this) ──────────────────────────
     const cachePayload = {
-      version:       "v2",
+      version:       "v3",
       oracleAddress: oracleAddress || null,
       blockNumber,
       txId,
@@ -183,7 +183,7 @@ async function relay() {
       updatedAt:     Date.now(),
     };
     try {
-      fs.writeFileSync(V2_CACHE_PATH, JSON.stringify(cachePayload), "utf-8");
+      fs.writeFileSync(V3_CACHE_PATH, JSON.stringify(cachePayload), "utf-8");
     } catch (err) {
       console.error("[RELAYER v3] Failed to write cache:", err);
     }
