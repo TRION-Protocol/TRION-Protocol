@@ -24,10 +24,14 @@ const V3_CACHE_PATH    = "/tmp/trion_v3_oracle.json";
 const POLL_INTERVAL_MS = 12_000;
 
 // ── V3 Oracle ABI (only the functions we call / read) ────────────────────────
+// V3 uses bytes[] signatures for quorum — array, not a single bytes value
 const ORACLE_V3_ABI = [
-  "function publishSignal(bytes32 txId, uint256 packedSignal, bytes calldata signature) external",
+  "function publishSignal(bytes32 txId, uint256 packedData, bytes[] calldata signatures) external",
   "function getSignal(bytes32 txId) view returns (uint256)",
-  "function validators(address) view returns (bool)",
+  "function isValidator(address) view returns (bool)",
+  "function quorumRequired() view returns (uint256)",
+  "function setQuorum(uint256 _q) external",
+  "function addValidator(address _v) external",
   "function owner() view returns (address)",
 ];
 
@@ -112,14 +116,56 @@ async function relay() {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const signer   = new ethers.Wallet(privateKey, provider);
 
+  // Fetch chain ID once at startup — needed for correct message hash
+  const network = await provider.getNetwork();
+  const chainId = network.chainId;
+
   console.log(`[RELAYER v3] Started   — signer   : ${signer.address}`);
   console.log(`[RELAYER v3] RPC       : ${rpcUrl}`);
   console.log(`[RELAYER v3] Oracle V3 : ${oracleAddress}`);
+  console.log(`[RELAYER v3] Chain ID  : ${chainId}`);
   console.log(`[RELAYER v3] Polling ${JSON_PATH} every ${POLL_INTERVAL_MS / 1000}s\n`);
 
   let oracle: ethers.Contract | null = null;
   if (oracleAddress) {
     oracle = new ethers.Contract(oracleAddress, ORACLE_V3_ABI, signer);
+
+    // ── Ensure quorum=1 and self registered as validator ─────────────────
+    try {
+      const owner: string = await oracle.owner();
+      const quorum: bigint = await oracle.quorumRequired();
+      const isOwner = owner.toLowerCase() === signer.address.toLowerCase();
+      console.log(`[RELAYER v3] Oracle owner : ${owner}`);
+      console.log(`[RELAYER v3] Quorum now   : ${quorum}`);
+      console.log(`[RELAYER v3] Is owner     : ${isOwner}`);
+
+      if (isOwner) {
+        // Set quorum to 1 for single-relayer operation
+        if (quorum > 1n) {
+          console.log(`[RELAYER v3] Setting quorum → 1 for single-relayer operation...`);
+          const qtx = await oracle.setQuorum(1);
+          await qtx.wait(1);
+          console.log(`[RELAYER v3] Quorum set to 1 ✓`);
+        } else {
+          console.log(`[RELAYER v3] Quorum already 1 — ok`);
+        }
+
+        // Register self as validator if not already
+        const alreadyValidator: boolean = await oracle.isValidator(signer.address);
+        if (!alreadyValidator) {
+          console.log(`[RELAYER v3] Registering self as validator...`);
+          const vtx = await oracle.addValidator(signer.address);
+          await vtx.wait(1);
+          console.log(`[RELAYER v3] Validator registered ✓`);
+        } else {
+          console.log(`[RELAYER v3] Already a registered validator — ok`);
+        }
+      } else {
+        console.warn(`[RELAYER v3] Not the owner — cannot set quorum or register validator`);
+      }
+    } catch (err: any) {
+      console.warn(`[RELAYER v3] Startup config error: ${err?.message?.slice(0, 200)}`);
+    }
   }
 
   let lastRelayedBlock = 0;
@@ -159,11 +205,15 @@ async function relay() {
     console.log(`             Packed: 0x${packedSignal.toString(16)}`);
     console.log(`             TxId  : ${txId}`);
 
-    // ── Sign (EIP-191 personal_sign — matches ecrecover in TRIONGuardV3) ──
-    const msgHash = ethers.keccak256(
-      ethers.solidityPacked(["bytes32", "uint256"], [txId, packedSignal])
+    // ── Sign — must match contract: keccak256(abi.encodePacked(chainid, oracle, txId, packed))
+    //    then wrapped with toEthSignedMessageHash (EIP-191) ─────────────────
+    const innerHash = ethers.keccak256(
+      ethers.solidityPacked(
+        ["uint256", "address", "bytes32", "uint256"],
+        [chainId, oracleAddress, txId, packedSignal]
+      )
     );
-    const signature = await signer.signMessage(ethers.getBytes(msgHash));
+    const signature = await signer.signMessage(ethers.getBytes(innerHash));
     console.log(`[RELAYER v3] Signature: ${signature}`);
 
     // ── Write V3 cache (dashboard API reads this) ──────────────────────────
@@ -191,16 +241,18 @@ async function relay() {
     // ── Publish on-chain ──────────────────────────────────────────────────
     if (oracle && oracleAddress) {
       try {
-        const tx = await oracle.publishSignal(txId, packedSignal, signature);
+        const tx = await oracle.publishSignal(txId, packedSignal, [signature]);
         console.log(`[RELAYER v3] Broadcast: ${tx.hash}`);
         const receipt = await tx.wait(1);
         console.log(`[RELAYER v3] Confirmed ✓ (block ${receipt?.blockNumber})`);
       } catch (err: any) {
         const msg: string = err?.message ?? String(err);
-        if (msg.includes("already been relayed") || msg.includes("execution reverted")) {
-          console.log(`[RELAYER v3] Signal already on-chain for block ${blockNumber} — skipping`);
+        if (msg.includes("already been relayed")) {
+          console.log(`[RELAYER v3] Block ${blockNumber} already on-chain — skipping`);
+        } else if (msg.includes("Insufficient quorum")) {
+          console.warn(`[RELAYER v3] Quorum not met for block ${blockNumber} — only 1 signature, oracle requires ${await oracle.quorumRequired()} validators`);
         } else {
-          console.error("[RELAYER v3] Broadcast failed:", msg.slice(0, 200));
+          console.error("[RELAYER v3] Broadcast failed:", msg.slice(0, 300));
         }
       }
     } else {

@@ -211,6 +211,29 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 - `block.chainid` is bound into the message hash (cross-chain replay protection)
 - Signal freshness: verified within 300 seconds and 50 blocks of publish time
 
+### V3 Message Hash (CRITICAL — must match on-chain)
+The contract hashes: `keccak256(abi.encodePacked(block.chainid, address(this), txId, packedData))`
+then wraps with `MessageHashUtils.toEthSignedMessageHash` (EIP-191).
+
+In the relayer (`artifacts/api-server/src/relayer.ts`):
+```typescript
+const innerHash = ethers.keccak256(
+  ethers.solidityPacked(
+    ["uint256", "address", "bytes32", "uint256"],
+    [chainId, oracleAddress, txId, packedSignal]
+  )
+);
+const signature = await signer.signMessage(ethers.getBytes(innerHash));
+```
+`chainId` is fetched via `provider.getNetwork()` at startup. **Both `chainid` and `oracleAddress` are required — omitting either produces a wrong signer address and "TRION: Invalid validator" rejection.**
+
+### V3 Relayer Startup Sequence
+On startup the relayer automatically:
+1. Confirms it is the oracle owner
+2. Sets `quorumRequired` to 1 (single-relayer operation) if > 1
+3. Registers itself as a validator via `addValidator()` if not already registered
+4. Fetches `chainId` from the network (used in every message hash)
+
 ### Developer SDK
 - `sdk/TrionSDK.ts` — TypeScript SDK for signal packing/unpacking
   - `TrionSDK.packSignal(status, coherence, threshold, blockNum, timestamp): bigint`
