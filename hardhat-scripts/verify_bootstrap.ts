@@ -6,6 +6,7 @@ import { ethers } from "hardhat";
 
 const ORACLE_ADDRESS  = "0xb819c63c02Ed5aB49017C0f3f2568A14624658b3";
 
+// Legacy txIds (first bootstrap formula) — prove those slots are initialized
 function legacyTxId(i: number): string {
   return ethers.keccak256(
     ethers.solidityPacked(["string", "uint256"], ["TRION_BOOTSTRAP_V3_SIGNAL_", i]),
@@ -52,9 +53,9 @@ async function main() {
   console.log(`\n  Last 10 etched signals (most recent first):`);
   const recent = logs.slice(-10).reverse();
   for (const log of recent) {
-    const parsed    = iface.parseLog({ topics: log.topics as string[], data: log.data })!;
-    const txId      = parsed.args[0] as string;
-    const status    = Number(parsed.args[1]);
+    const parsed = iface.parseLog({ topics: log.topics as string[], data: log.data })!;
+    const txId     = parsed.args[0] as string;
+    const status   = Number(parsed.args[1]);
     const coherence = Number(parsed.args[2]);
     const threshold = Number(parsed.args[3]);
     console.log(
@@ -70,18 +71,17 @@ async function main() {
     const id  = legacyTxId(i);
     const sig = await oracle.signals(id);
     const initialized = sig[1];
-    console.log(
-      `    TRION_BOOTSTRAP_V3_SIGNAL_${String(i).padEnd(3)} → initialized=${initialized} ${initialized ? "✓" : "✗"}`,
-    );
+    console.log(`    TRION_BOOTSTRAP_V3_SIGNAL_${String(i).padEnd(3)} → initialized=${initialized} ${initialized ? "✓" : "✗"}`);
   }
 
-  // ── 4. Spot-check 5 overwrite signals via getSignalInfo ──────────────────
+  // ── 4. Spot-check 5 overwrite txIds via getSignalInfo on recent events ────
   console.log(`\n  Spot-checking 5 overwrite signals via getSignalInfo:`);
   const sample = logs.slice(-5);
   for (const log of sample) {
-    const parsed = iface.parseLog({ topics: log.topics as string[], data: log.data })!;
-    const txId   = parsed.args[0] as string;
-    const info   = await oracle.getSignalInfo(txId);
+    const parsed  = iface.parseLog({ topics: log.topics as string[], data: log.data })!;
+    const txId    = parsed.args[0] as string;
+    const info    = await oracle.getSignalInfo(txId);
+    // returns (uint8 status, uint32 coherence, uint32 threshold, uint64 blockNum, uint64 timestamp)
     const [s, c, t, bn, ts] = info;
     console.log(
       `    txId=${txId.slice(0, 14)}… ` +
@@ -93,9 +93,9 @@ async function main() {
   console.log(`║   PROOF SUMMARY                                              ║`);
   console.log(`║   ${String(logs.length).padEnd(3)} ThermodynamicSignalEtched events on-chain              ║`);
   console.log(`║   Quorum = ${quorum} (enforced on every signal)                    ║`);
-  console.log(`║   Legacy slots : all initialized ✓                          ║`);
-  console.log(`║   Oracle  : ${ORACLE_ADDRESS}        ║`);
-  console.log(`║   Explorer: sepolia.arbiscan.io/address/${ORACLE_ADDRESS.slice(0,10)}…  ║`);
+  console.log(`║   Legacy slots: all initialized ✓                            ║`);
+  console.log(`║   Oracle  : ${ORACLE_ADDRESS}  ║`);
+  console.log(`║   Explorer: https://sepolia.arbiscan.io/address/${ORACLE_ADDRESS.slice(0, 10)}…  ║`);
   console.log(`╚══════════════════════════════════════════════════════════════╝\n`);
 }
 
