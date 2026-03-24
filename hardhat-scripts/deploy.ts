@@ -1,33 +1,39 @@
 import { ethers } from "hardhat";
 
+/**
+ * Deploy TRIONOracleV3 and TRIONProtectedVault to the configured network.
+ *
+ * Usage (Arbitrum Sepolia):
+ *   TS_NODE_PROJECT=tsconfig.hardhat.json \
+ *   npx hardhat run hardhat-scripts/deploy.ts --network arbitrumSepolia
+ */
 async function main() {
-  const RELAYER_ADDRESS =
-    process.env["TRION_RELAYER_ADDRESS"] ??
-    "0xdbbf66cad621da3ec186d18b29a135d2a5d42d20";
-
-  console.log("Deploying TrionOracle to Arbitrum Sepolia...");
-  console.log(`Relayer address: ${RELAYER_ADDRESS}`);
-
   const [deployer] = await ethers.getSigners();
-  console.log(`Deploying from: ${deployer.address}`);
-
   const balance = await ethers.provider.getBalance(deployer.address);
-  console.log(`Deployer balance: ${ethers.formatEther(balance)} ETH`);
 
-  const TrionOracle = await ethers.getContractFactory("TrionOracle");
-  const oracle = await TrionOracle.deploy(RELAYER_ADDRESS);
+  console.log(`Deployer : ${deployer.address}`);
+  console.log(`Balance  : ${ethers.formatEther(balance)} ETH\n`);
 
+  if (balance < ethers.parseEther("0.001")) {
+    throw new Error("Insufficient ETH for deployment (need >= 0.001 ETH)");
+  }
+
+  const TRIONOracleV3 = await ethers.getContractFactory("TRIONOracleV3");
+  const oracle = await TRIONOracleV3.deploy();
   await oracle.waitForDeployment();
+  const oracleAddress = await oracle.getAddress();
+  console.log(`TRIONOracleV3       : ${oracleAddress}`);
 
-  const address = await oracle.getAddress();
-  console.log("\n✅ TrionOracle deployed successfully!");
-  console.log(`📍 Contract address: ${address}`);
-  console.log(`🔗 Explorer: https://sepolia.arbiscan.io/address/${address}`);
-  console.log("\nNext step — add this to your environment:");
-  console.log(`TRION_ORACLE_ADDRESS=${address}`);
+  const TRIONProtectedVault = await ethers.getContractFactory("TRIONProtectedVault");
+  const vault = await TRIONProtectedVault.deploy(oracleAddress);
+  await vault.waitForDeployment();
+  const vaultAddress = await vault.getAddress();
+  console.log(`TRIONProtectedVault : ${vaultAddress}`);
+
+  console.log(`\nArbiscan: https://sepolia.arbiscan.io/address/${oracleAddress}`);
 }
 
 main().catch((err) => {
-  console.error("Deployment failed:", err);
-  process.exit(1);
+  console.error(err);
+  process.exitCode = 1;
 });

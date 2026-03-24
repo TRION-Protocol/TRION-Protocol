@@ -4,17 +4,16 @@ pragma solidity ^0.8.20;
 import "./TRIONGuard.sol";
 
 /**
- * @title ReentrancyAttacker
- * @dev Simulates an attacker contract that exploits a reentrancy flaw.
- *      On receiving ETH it immediately calls withdraw() again,
- *      draining the vault before balances are updated.
+ * @title  ReentrancyAttacker
+ * @notice Simulates an attacker that exploits a reentrancy flaw.
+ *         Used in simulate-exploit.ts to demonstrate TRION interception.
  */
 contract ReentrancyAttacker {
     VulnerableVault public target;
     uint256 public stolenAmount;
 
-    constructor(address payable _target) {
-        target = VulnerableVault(_target);
+    constructor(address payable vault) {
+        target = VulnerableVault(vault);
     }
 
     function attack() external payable {
@@ -23,7 +22,6 @@ contract ReentrancyAttacker {
         target.withdraw();
     }
 
-    // Called by the vault during withdraw() — re-enters before state clears
     receive() external payable {
         if (address(target).balance >= msg.value) {
             target.withdraw();
@@ -37,13 +35,10 @@ contract ReentrancyAttacker {
 }
 
 /**
- * @title VulnerableVault
- * @dev A mock DeFi vault with a CLASSIC reentrancy vulnerability:
- *      ETH is sent to the caller BEFORE the balance is zeroed.
- *
- *      The `withdraw()` function is wrapped in `trionProtected`, so
- *      TRION can freeze it the instant the L0 engine detects anomalous
- *      behavioral coherence — blocking the exploit at the execution layer.
+ * @title  VulnerableVault
+ * @notice Mock DeFi vault with an intentional reentrancy vulnerability.
+ *         `withdraw()` is gated by `onlyWhenCoherent` — when TRION signals
+ *         a behavioral anomaly the call reverts before a single wei can leave.
  */
 contract VulnerableVault is TRIONGuard {
     mapping(address => uint256) public balances;
@@ -51,7 +46,7 @@ contract VulnerableVault is TRIONGuard {
     event Deposit(address indexed user, uint256 amount);
     event Withdrawal(address indexed user, uint256 amount);
 
-    constructor(address _oracle) TRIONGuard(_oracle) {}
+    constructor(address oracle) TRIONGuard(oracle) {}
 
     function deposit() external payable {
         require(msg.value > 0, "Must deposit ETH");
@@ -60,21 +55,16 @@ contract VulnerableVault is TRIONGuard {
     }
 
     /**
-     * @dev INTENTIONALLY VULNERABLE to reentrancy.
-     *      External call fires BEFORE balance is cleared — a textbook exploit.
-     *      Protected by TRION: if the oracle signals anomaly, this reverts
-     *      with "TRION: Thermodynamic Collapse Detected" before a single wei can leave.
-     *      txId is derived deterministically from caller + block number.
+     * @dev Intentionally vulnerable to reentrancy (external call before state clear).
+     *      TRION intercepts before the call reaches this logic when in anomaly state.
      */
     function withdraw() external onlyWhenCoherent(keccak256(abi.encode(msg.sender, block.number))) {
         uint256 amount = balances[msg.sender];
         require(amount > 0, "Nothing to withdraw");
 
-        // ⚠ VULNERABILITY: external call before state update
         (bool ok, ) = msg.sender.call{value: amount}("");
         require(ok, "Transfer failed");
 
-        // State update happens AFTER the call — attacker re-enters here
         balances[msg.sender] = 0;
         emit Withdrawal(msg.sender, amount);
     }

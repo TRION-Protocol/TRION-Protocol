@@ -27,26 +27,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Bootstrap V2"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "TRION L0 Daemon"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "TRION V2 Relayer"
-
-[[workflows.workflow]]
-name = "Bootstrap V2"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd /home/runner/workspace && HARDHAT_DISABLE_TELEMETRY_PROMPT=true TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run hardhat-scripts/bootstrap_trion_v3.ts --network arbitrumSepolia"
 
 [[workflows.workflow]]
 name = "TRION L0 Daemon"
@@ -55,17 +36,6 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd /home/runner/workspace/trion-l0 && cargo run"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "TRION V2 Relayer"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run relay"
 
 [workflows.workflow.metadata]
 outputType = "console"

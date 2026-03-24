@@ -1,221 +1,111 @@
-# Workspace
+# TRION Protocol — Workspace
 
-## TRION Protocol L0 — Real-Time Indexer Daemon
-
-A zero-dependency, bare-metal Rust daemon that connects to Arbitrum One Mainnet and extracts 9 thermodynamic behavioral features per block in real time.
-
-### Location
-`trion-l0/` — standalone Rust project (no external crate dependencies)
-
-### Run
-```bash
-cd trion-l0 && cargo run
-```
-Requires `ARBITRUM_RPC_URL` in Replit Secrets (full URL or raw Alchemy key).
-
-### Architecture
-- Pure Rust standard library + system `curl` for JSON-RPC calls
-- Zero-dependency `Cargo.toml` — compiles in ~3 seconds
-- Continuous daemon loop: polls `eth_blockNumber`, extracts full block on new blocks, sleeps 300ms otherwise
-- Manual JSON parser handles the transactions array without `serde_json`
-
-### 9 Behavioral Features (Physical Plane Φ)
-| ID | Feature | Description |
-|----|---------|-------------|
-| f1 | Transaction Density | Total tx count |
-| f2 | Base Fee Volatility | Network congestion (Wei) |
-| f3 | Net Value Flow | Total ETH moved (ETH) |
-| f4 | Entity Concentration | Unique senders / total txs |
-| f5 | Counterparty Diversity | Unique receivers / unique senders |
-| f6 | Contract Interaction Rate | Fraction of txs calling contracts |
-| f7 | Gas Limit Skew | Top 10% gas share |
-| f8 | Zero-Value Entropy | Fraction of zero-value txs |
-| f9 | Block Coherence Score C(t) | Composite ∈ [0.00, 1.00] |
+A behavioral execution firewall for DeFi protocols on Arbitrum. The system monitors on-chain activity, derives a coherence score, publishes signed signals to an on-chain oracle, and allows integrated smart contracts to gate execution against anomalous network states.
 
 ---
 
-## L1 Semantic Plane
+## Repository Structure
 
-- 10-block sliding window `VecDeque<f64>` tracks C(t) values
-- Rolling baseline Θ(t) = mean of window
-- SILENCE primitive: alerts when C(t) drops >30% below Θ(t)
-- **AnomalyHunter (EMA)**: α=0.10, anomaly_threshold=15% — tracks μ(t) via Exponential Moving Average
-- Output: `/tmp/trion_latest.json` — includes `mu_t`, `is_stable`, shared between daemon, API server, and relayer
+```
+contracts/
+  interfaces/
+    ITRIONOracleV3.sol        Oracle interface for integrators
+  core/
+    TRIONOracleV3.sol         Production oracle (quorum, 256-bit signals)
+    TRIONGuardV3.sol          Abstract guard (onlyWhenCoherent modifier)
+  examples/
+    TRIONProtectedVault.sol   Reference DeFi integration
+  test/
+    MockOracle.sol            Local Hardhat test double (implements ITRIONOracle)
+    VulnerableVault.sol       Reentrancy demo gated by TRION
+    TRIONGuard.sol            Legacy v1 guard (test dependency)
+    ITRIONOracle.sol          Legacy v1 interface (test dependency)
 
-## Phase 1: Integration Layer Contracts
+trion-l0/
+  src/main.rs                 Rust L0 indexer daemon
 
-Deployed to Arbitrum Sepolia.
+artifacts/
+  api-server/                 Express API server + V3 relayer
+  trion-dashboard/            React + Vite real-time dashboard
+  mockup-sandbox/             Component preview server
+
+hardhat-scripts/
+  deploy.ts                   Deploy TRIONOracleV3 + TRIONProtectedVault
+  deploy-vault.ts             Deploy vault only (against live oracle)
+  bootstrap.ts                Verify oracle state on-chain
+  simulate-exploit.ts         Local reentrancy demo on Hardhat network
+
+sdk/
+  index.ts                    TrionSDK: packSignal / unpackSignal
+
+docs/
+  integration-map.md          Full execution flow + signal layout reference
+
+lib/
+  db/                         Drizzle ORM + PostgreSQL
+  api-spec/                   OpenAPI spec
+  api-client-react/           Generated React Query hooks
+  api-zod/                    Generated Zod schemas
+
+scripts/
+  post-merge.sh               Post-merge setup hook
+```
+
+---
+
+## Deployed Contracts (Arbitrum Sepolia)
 
 | Contract | Address |
-|----------|---------|
-| MockLendingVault | `0x66350c06196afBaC29f206F8Fc2b7d81B359D0D5` |
-| TRIONOracleV2 (guard target) | `0x852365411bf700ba7257A93c134CBdE71A58d4E0` |
-
-- `contracts/ITRIONOracle.sol` — interface: `isSafe(bytes32 txId)`
-- `contracts/TRIONGuard.sol` — abstract base with `onlyWhenCoherent(bytes32)` modifier
-- `contracts/MockLendingVault.sol` — demo DeFi vault gated by TRION
-- `hardhat-scripts/deploy_mock.ts` — deployment script
-
-## Phase 2: On-Chain Oracle Bridge (V2 Trustless)
-
-### Smart Contract: `contracts/v2_trustless/TRIONOracleV2.sol`
-- V2 Trustless architecture — ecrecover-based validator permissioning
-- Packed signal layout (bits 0-1: signalType, bits 17-48: coherence ×1e6, bits 49-80: threshold ×1e6)
-- `publishSignal(txId, packedSignal, signature)` — on-chain signature verification via ecrecover
-- **Deployed on Arbitrum Sepolia (V2)**: `0x852365411bf700ba7257A93c134CBdE71A58d4E0`
-- Explorer: https://sepolia.arbiscan.io/address/0x852365411bf700ba7257A93c134CBdE71A58d4E0
-- Relayer wallet / validator: `0xdbbf66cad621da3ec186d18b29a135d2a5d42d20`
-- Deploy command: `TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run hardhat-scripts/deploy_v2_sepolia.ts --network arbitrumSepolia`
-
-### V2 Relayer: `artifacts/api-server/src/relayer.ts`
-- Polls `/tmp/trion_latest.json` every 12 seconds
-- Bit-packs signalType + coherence + threshold into a uint256
-- Signs payload hash with EIP-191 personal_sign (ecrecover-compatible)
-- Broadcasts to `TRIONOracleV2.publishSignal()` on Arbitrum Sepolia
-- Writes V2 signed state cache to `/tmp/trion_v2_oracle.json` (served via `/api/trion/v2oracle`)
-- Run: `pnpm --filter @workspace/api-server run relay`
-- Requires: `RELAYER_PRIVATE_KEY`, `ARBITRUM_SEPOLIA_RPC` (defaults to publicnode), `TRION_V2_ORACLE_ADDRESS`
-
-## L2 Public Dashboard
-
-- React + Vite dashboard at `/` (artifact: `trion-dashboard`, port 24875)
-- Polls `GET /api/trion/latest` every 1 second via React Query
-- Dark terminal cyberpunk aesthetic — neon green on black, monospace fonts
-- Features: live C(t) display, Θ(t) baseline, status banner (SAFE/ANOMALY), 3x3 feature grid
-- API route: `artifacts/api-server/src/routes/trion.ts` (reads `/tmp/trion_latest.json`)
+|---|---|
+| TRIONOracleV3 | `0xb819c63c02Ed5aB49017C0f3f2568A14624658b3` |
+| TRIONProtectedVault | `0x91D7D8bc873D13B75E329e62D9dDA4EfF1b9f7E5` |
 
 ---
 
-# Workspace (TypeScript Monorepo)
+## Running Components
 
-## Overview
-
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
-
-## Stack
-
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
-
-## Structure
-
-```text
-artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
-```
-
-## TypeScript & Composite Projects
-
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
-
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
-
-## Root Scripts
-
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
-
-## Packages
-
-### `artifacts/api-server` (`@workspace/api-server`)
-
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
-
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+| Workflow | Command | Port |
+|---|---|---|
+| L0 Indexer | `cd trion-l0 && cargo run` | — |
+| API Server | `PORT=3001 pnpm --filter @workspace/api-server run dev` | 3001 |
+| Dashboard | `PORT=8080 pnpm --filter @workspace/trion-dashboard run dev` | 8080 |
+| Relayer | `pnpm --filter @workspace/api-server run relay` | — |
 
 ---
 
-## Phase 3: V3.0 Institutional Architecture
+## L0 Indexer (Rust)
 
-### Smart Contracts (V3)
+Polls `eth_getBlockByNumber` every 300 ms. Extracts 8 behavioral features per block:
 
-| File | Purpose |
-|------|---------|
-| `contracts/interfaces/ITRIONOracleV3.sol` | V3 oracle interface with quorum-aware events |
-| `contracts/TRIONOracleV3.sol` | Hardened oracle — cryptographic quorum consensus, 256-bit signal packing, chain-bound verification |
-| `contracts/TRIONGuardV3.sol` | Abstract integration guard — `onlyWhenCoherent` + `onlyWhenCoherentCrossChain` modifiers, bypass toggle |
-| `contracts/examples/TRIONProtectedVault.sol` | Reference consumer — flash loan gated by TRION oracle |
+| Feature | Description |
+|---|---|
+| f1 Transaction density | Tx count |
+| f2 Base fee volatility | Wei variance |
+| f3 Net value flow | ETH moved |
+| f4 Entity concentration | Sender concentration (Gini) |
+| f5 Counterparty diversity | Unique recipient ratio |
+| f6 Contract interaction rate | Fraction of contract calls |
+| f7 Gas limit skew | Top-10% gas share |
+| f8 Zero-value entropy | Fraction of zero-value txs |
 
-### V3 Signal Layout (256-bit packed uint256)
+Computes `C(t) = mean(f1..f8)`, EMA baseline `μ(t)`, sliding window `Θ(t)`. Writes `/tmp/trion_latest.json`.
+
+---
+
+## V3 Signal Layout (uint256)
+
 | Bits | Field | Notes |
-|------|-------|-------|
-| 0–7 | Status | 1=SAFE, 2=WARN, 3=SILENCE |
-| 8–39 | C(t) coherence | Scaled ×1e6 |
-| 40–71 | Threshold | Scaled ×1e6 |
-| 72–135 | BlockNum | uint64 |
-| 136–199 | Timestamp | uint64 (unix) |
+|---|---|---|
+| 0–7 | status | 1=SAFE, 2=WARN, 3=SILENCE |
+| 8–39 | coherence C(t) | Scaled ×1e6 |
+| 40–71 | threshold Θ(t) | Scaled ×1e6 |
+| 72–135 | blockNum | uint64 |
+| 136–199 | timestamp | Unix seconds, uint64 |
 
-### V3 Quorum Model
-- `publishSignal(txId, packedData, signatures[])` — requires `signatures.length >= quorumRequired` (default: 2)
-- Signatures must be sorted ascending by signer address (replay-safe ordering)
-- `block.chainid` is bound into the message hash (cross-chain replay protection)
-- Signal freshness: verified within 300 seconds and 50 blocks of publish time
+---
 
-### V3 Message Hash (CRITICAL — must match on-chain)
-The contract hashes: `keccak256(abi.encodePacked(block.chainid, address(this), txId, packedData))`
-then wraps with `MessageHashUtils.toEthSignedMessageHash` (EIP-191).
+## V3 Message Hash (relayer must match on-chain)
 
-In the relayer (`artifacts/api-server/src/relayer.ts`):
 ```typescript
 const innerHash = ethers.keccak256(
   ethers.solidityPacked(
@@ -225,40 +115,26 @@ const innerHash = ethers.keccak256(
 );
 const signature = await signer.signMessage(ethers.getBytes(innerHash));
 ```
-`chainId` is fetched via `provider.getNetwork()` at startup. **Both `chainid` and `oracleAddress` are required — omitting either produces a wrong signer address and "TRION: Invalid validator" rejection.**
 
-### V3 Relayer Startup Sequence
-On startup the relayer automatically:
+Contract: `keccak256(abi.encodePacked(block.chainid, address(this), txId, packedData))` wrapped with `MessageHashUtils.toEthSignedMessageHash`.
+
+---
+
+## Relayer Startup Sequence
+
+On startup the relayer:
 1. Confirms it is the oracle owner
-2. Sets `quorumRequired` to 1 (single-relayer operation) if > 1
+2. Sets `quorumRequired` to 1 if > 1 (single-validator testnet mode)
 3. Registers itself as a validator via `addValidator()` if not already registered
-4. Fetches `chainId` from the network (used in every message hash)
+4. Fetches `chainId` from the provider (used in every message hash)
 
-### Developer SDK
-- `sdk/TrionSDK.ts` — TypeScript SDK for signal packing/unpacking
-  - `TrionSDK.packSignal(status, coherence, threshold, blockNum, timestamp): bigint`
-  - `TrionSDK.unpackSignal(packed: bigint): { status, coherence, threshold, blockNum, timestamp }`
+---
 
-### V3 Deployed Contracts (Arbitrum Sepolia)
+## TypeScript Monorepo
 
-| Contract | Address |
-|----------|---------|
-| TRIONOracleV3 | `0xb819c63c02Ed5aB49017C0f3f2568A14624658b3` |
-| TRIONProtectedVault (V3, original) | `0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D` |
-| TRIONProtectedVault (Attack Matrix) | `0x91D7D8bc873D13B75E329e62D9dDA4EfF1b9f7E5` |
+pnpm workspaces, Node.js 24, TypeScript 5.9, Express 5, Drizzle ORM, Zod.
 
-- Explorer (Oracle): https://sepolia.arbiscan.io/address/0xb819c63c02Ed5aB49017C0f3f2568A14624658b3
-- Explorer (Vault original): https://sepolia.arbiscan.io/address/0x93fD8a351C48317Ca3b38923d7ad2937aD9E716D
-- Explorer (Vault matrix): https://sepolia.arbiscan.io/address/0x91D7D8bc873D13B75E329e62D9dDA4EfF1b9f7E5
-- Deploy script (V3): `hardhat-scripts/deploy_v3.ts`
-- Deploy script (matrix): `hardhat-scripts/deploy_vault_matrix.ts`
-
-### Attack Matrix — 3 Protected Functions (TRIONProtectedVault)
-
-| Function | Attack Type | Tag |
-|----------|------------|-----|
-| `flashLoanAttack(address, uint256)` | Flash Loan Oracle Manipulation | MF_TYPE_3 |
-| `sybilLiquidityDrain(uint256, address[])` | Sybil Liquidity Drain | MF_TYPE_4 |
-| `governanceHostileTakeover(bytes32)` | Governance Hostile Takeover | MF_TYPE_5 |
-
-All three are gated by `onlyWhenCoherent`. The UI (`TRIONAttackMatrix.tsx`) computes the TRION txId fingerprint client-side (matching the on-chain derivation) before firing the exploit.
+- Typecheck from root: `pnpm run typecheck`
+- All packages extend `tsconfig.base.json` with `composite: true`
+- API routes live in `artifacts/api-server/src/routes/`
+- DB schema in `lib/db/src/schema/`
