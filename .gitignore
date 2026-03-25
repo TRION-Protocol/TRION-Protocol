@@ -49,9 +49,7 @@ typechain/
 # Replit workspace internals
 .cache/
 .local/
-.agents/
-.replit
-replit.md
+
 
 # Rust build output
 target/
