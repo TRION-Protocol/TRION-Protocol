@@ -20,7 +20,7 @@ async fn main() {
     tracing::info!("║      TRION Akashic Oracle — L2 Query Engine      ║");
     tracing::info!("╚══════════════════════════════════════════════════╝");
 
-    let db_pool = match std::env::var("DATABASE_URL") {
+    let db_pool = match std::env::var("TIMESCALEDB_URL") {
         Ok(url) => match sqlx::PgPool::connect(&url).await {
             Ok(pool) => {
                 tracing::info!("TimescaleDB connected");
@@ -32,7 +32,7 @@ async fn main() {
             }
         },
         Err(_) => {
-            tracing::warn!("DATABASE_URL not set. Sourcing Φ(t) from /tmp/trion_latest.json");
+            tracing::warn!("TIMESCALEDB_URL not set. Sourcing Φ(t) from /tmp/trion_latest.json");
             None
         }
     };
