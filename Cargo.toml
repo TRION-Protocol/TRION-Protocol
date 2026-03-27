@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "trion-l0",
+    "akashic-oracle",
+]
+resolver = "2"

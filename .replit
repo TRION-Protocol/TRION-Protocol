@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "rust-stable", "web"]
+modules = ["nodejs-20", "rust-stable", "web", "python-3.11"]
 
 [[artifacts]]
 id = "artifacts/trion-dashboard"
@@ -44,6 +44,14 @@ args = "API Server"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Dashboard"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Akashic Oracle"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "FAISS Intelligence Engine"
 
 [[workflows.workflow]]
 name = "Bootstrap V2"
@@ -100,6 +108,30 @@ outputType = "webview"
 task = "shell.exec"
 args = "PORT=8080 BASE_PATH=/ API_PORT=3001 pnpm --filter @workspace/trion-dashboard run dev"
 
+[[workflows.workflow]]
+name = "Akashic Oracle"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=3002 FAISS_SERVICE_URL=http://127.0.0.1:8000 cargo run --release -p akashic-oracle"
+waitForPort = 3002
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "FAISS Intelligence Engine"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "FAISS_PORT=8000 bash /home/runner/workspace/akashic/start.sh"
+waitForPort = 8000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
@@ -110,7 +142,7 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
-packages = ["openssl", "pkg-config"]
+packages = ["glibcLocales", "openssl", "pkg-config"]
 
 [userenv]
 

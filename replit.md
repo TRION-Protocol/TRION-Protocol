@@ -262,3 +262,62 @@ On startup the relayer automatically:
 | `governanceHostileTakeover(bytes32)` | Governance Hostile Takeover | MF_TYPE_5 |
 
 All three are gated by `onlyWhenCoherent`. The UI (`TRIONAttackMatrix.tsx`) computes the TRION txId fingerprint client-side (matching the on-chain derivation) before firing the exploit.
+
+---
+
+## Akashic Index — L2 Query Engine
+
+A dual-language intelligence system layered on top of the existing TRION L0/L1 stack. Adds the full five-plane C(t) Oracle API without modifying any existing code.
+
+### Architecture
+
+```
+trion-l0 (Rust)      → /tmp/trion_latest.json  → Physical Plane Φ(t)
+akashic/FAISS (Python) → HTTP :8000              → Mental Plane M(t)
+akashic-oracle (Rust Axum) → HTTP :3002         → C(t) Oracle API
+```
+
+### Rust Workspace
+
+A root `Cargo.toml` defines a Rust workspace with two members:
+- `trion-l0/` — existing L0 daemon
+- `akashic-oracle/` — new Axum Oracle API
+
+### Akashic Oracle (`akashic-oracle/`)
+
+- **Language**: Rust (Axum, tokio, sqlx, reqwest, sha3)
+- **Port**: `3002` (set via `PORT` env var)
+- **Workflow**: `Akashic Oracle`
+- **Endpoints**:
+  - `GET /api/v1/signal/:entity_id` — full TRIONSignal JSON with C(t) breakdown
+  - `GET /api/v1/health` — service status
+
+**Signal computation:**
+1. Reads `Φ(t)` from `/tmp/trion_latest.json` with staleness guard (>60s → SILENCE)
+2. Calls FAISS service at `http://127.0.0.1:8000/similarity/:entity_id` for `M(t)` (5ms timeout, fail-closed)
+3. Computes `C(t) = 0.25·Φ + 0.30·M + 0.25·S + 0.10·K + 0.10·A`
+4. Evaluates against dynamic `Θ(t)` — returns `VALUATION` or `SILENCE`
+
+**Fail-closed gates** (any of these → SILENCE): DB failure, stale L0 data, missing entity, FAISS timeout, entropy spike, physical plane instability.
+
+**TimescaleDB**: Set `DATABASE_URL` secret with your Timescale Cloud URI to enable persistent Akashic history. Without it the service degrades to L0-file mode (still functional).
+
+### FAISS Intelligence Engine (`akashic/`)
+
+- **Language**: Python (FastAPI, faiss-cpu with AVX2, numpy, scikit-learn)
+- **Port**: `8000`
+- **Workflow**: `FAISS Intelligence Engine`
+- **Files**:
+  - `akashic/faiss_service.py` — FastAPI service with `/health`, `/similarity/:entity_id`, `/index/add`
+  - `akashic/start.sh` — bootstrap script (installs deps, starts uvicorn)
+  - `akashic/requirements.txt` — Python dependencies
+
+**Index lifecycle**: Loads `akashic_faiss.index` if present; initializes empty 128-dimensional flat L2 index otherwise. Auto-persists every 100 ingested vectors. Returns `M(t)=0.75` (neutral) when no vectors are indexed yet.
+
+### TimescaleDB Connection (optional but recommended)
+
+Set the `DATABASE_URL` secret to your TimescaleDB URI:
+```
+postgres://tsdbadmin:<password>@akashik-index-trion-protocol.a.timescaledb.io:18022/defaultdb?sslmode=require
+```
+The oracle connects on startup and logs the result. Without it, it runs in `L0_FILE` mode using the existing L0 daemon output.
