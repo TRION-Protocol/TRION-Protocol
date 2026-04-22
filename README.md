@@ -281,6 +281,8 @@ const fields = TrionSDK.unpackSignal(packed);
 
 ---
 
+Verify this project on Giveth: https://giveth.io/project/trion-protocol-behavioral-truth-oracle?apcid=0069b1b4fcbac74c5457fa00
+
 ## License
 
 CC0 — No rights reserved.
