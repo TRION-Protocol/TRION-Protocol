@@ -1,0 +1,26 @@
+{
+  "name": "@axiom/contracts",
+  "version": "0.0.0-D(AXIOM.t)",
+  "description": "AXIOM Smart Contracts — TRIONOracleV4, BehavioralIdentity, AkashicProof, ImmunityRegistry",
+  "license": "CC0-1.0",
+  "author": "Hudu Yusuf (Analys) <analys@trionprotocol.io>",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:arbitrum": "hardhat run scripts/deploy.ts --network arbitrum",
+    "verify": "hardhat verify",
+    "flatten": "hardhat flatten"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "typescript": "^5.4.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  }
+}

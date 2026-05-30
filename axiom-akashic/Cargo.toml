@@ -1,0 +1,29 @@
+[package]
+name = "axiom-akashic"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "AXIOM Akashic — L3 Living Akashic Index (TimescaleDB + Redis)"
+
+[dependencies]
+axiom-core = { path = "../axiom-core" }
+blake3.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+redis.workspace = true
+tonic.workspace = true
+prost.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+hex.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+bytes.workspace = true
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }

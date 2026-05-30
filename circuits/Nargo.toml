@@ -1,0 +1,9 @@
+[package]
+name = "axiom-bzkp"
+type = "bin"
+authors = ["Hudu Yusuf (Analys) <analys@trionprotocol.io>"]
+compiler_version = ">=0.30.0"
+description = "AXIOM Behavioral Zero-Knowledge Proofs (Invention #4)"
+
+[dependencies]
+# No external Noir dependencies — pure circuit

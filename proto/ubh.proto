@@ -1,0 +1,198 @@
+// AXIOM Protocol Buffers — Universal Behavioral Hash
+//
+// Proto3 definition for the UBH (Universal Behavioral Hash) message
+// and the AXIOM Node gRPC service.
+//
+// Author: Hudu Yusuf (Analys), @The_analys
+// License: CC0 1.0 Universal
+
+syntax = "proto3";
+
+package axiom.v1;
+
+option go_package = "github.com/dev-analyshd/TRION-Protocol/AXIOM/axiom-rcp/proto";
+option java_package = "io.axiom.v1";
+option java_outer_classname = "AXIOMProto";
+
+// ============================================================================
+// UBE TYPE ENUM
+// ============================================================================
+
+enum UBEType {
+    UBE_UNKNOWN      = 0;   // Reserved (invalid)
+    UBE_TRANSFER     = 1;
+    UBE_SWAP         = 2;
+    UBE_LIQUIDITY    = 3;
+    UBE_STAKE        = 4;
+    UBE_UNSTAKE      = 5;
+    UBE_GOVERNANCE   = 6;
+    UBE_PROPOSAL     = 7;
+    UBE_BORROW       = 8;
+    UBE_REPAY        = 9;
+    UBE_LIQUIDATE    = 10;
+    UBE_BRIDGE       = 11;
+    UBE_DEPLOY       = 12;
+    UBE_UPGRADE      = 13;
+    UBE_MINT         = 14;
+    UBE_BURN         = 15;
+    UBE_ORACLE_UPDATE = 16;
+    UBE_MEV_CAPTURE  = 17;
+    UBE_FLASH_LOAN   = 18;
+    UBE_AIRDROP      = 19;
+    UBE_CLAIM        = 20;
+    UBE_EXECUTE      = 21;
+    UBE_READ         = 22;
+    UBE_WRITE        = 23;
+    UBE_SPAWN        = 24;
+    UBE_TERMINATE    = 25;
+    UBE_COMMUNICATE  = 26;
+    UBE_SENSE        = 27;
+    UBE_ACTUATE      = 28;
+    UBE_LEARN        = 29;
+    UBE_DECIDE       = 30;
+    UBE_AUTHENTICATE = 31;
+    UBE_TRANSFORM    = 32;
+}
+
+// ============================================================================
+// UNIVERSAL BEHAVIORAL HASH (UBH)
+// ============================================================================
+
+// The atomic unit of AXIOM. Every behavioral event generates one UBH.
+// Records are immutable once written (Append Invariant I1).
+message UniversalBehavioralHash {
+    // Entity identity (32 bytes)
+    bytes entity_bpi = 1;
+
+    // Event classification
+    UBEType event_type    = 2;
+    uint32  event_subtype = 3;
+
+    // Causal chain
+    bytes prior_hash     = 4;  // UBH[n-1].self_hash (32 bytes)
+    bytes causal_context = 5;  // Rolling causal context hash (32 bytes)
+
+    // Temporal anchoring (GPS nanoseconds)
+    uint64 gps_timestamp    = 6;
+    uint64 device_timestamp = 7;
+
+    // Environmental context
+    bytes environment_hash = 8;  // L0 environmental context hash (32 bytes)
+
+    // Event payload (max 4KB)
+    bytes event_payload = 9;
+
+    // Physical attestation
+    bytes entropy_proof = 10;   // L0 GPS+HSM entropy (32 bytes)
+    bytes validator_sig = 11;   // Validator signature (32 bytes)
+
+    // Self-referential hash (Blake3 of all above fields)
+    bytes self_hash = 12;  // 32 bytes
+
+    // Derived (computed, not stored in primary index)
+    float  bc_at_event    = 13;  // BC(entity,t) at emission
+    double depth_at_event = 14;  // D(entity,t) at emission
+}
+
+// ============================================================================
+// EMIT EVENT REQUEST/RESPONSE
+// ============================================================================
+
+message EmitEventRequest {
+    bytes   entity_bpi    = 1;
+    UBEType event_type    = 2;
+    bytes   payload       = 3;
+    float   bc_at_event   = 4;
+    double  depth_at_event = 5;
+}
+
+message EmitEventResponse {
+    bytes  self_hash = 1;   // Blake3 hash of the generated UBH
+    bool   accepted  = 2;   // False if entity is SILENCED or validation fails
+    string error_msg = 3;   // Non-empty if accepted = false
+}
+
+// ============================================================================
+// TRUTH STATE
+// ============================================================================
+
+message TruthStateRequest {
+    bytes entity_bpi = 1;
+}
+
+message TruthStateResponse {
+    bytes  entity_bpi  = 1;
+    float  bc          = 2;   // BC(entity,t) ∈ [0,1]
+    float  psi         = 3;   // Ψ(entity,t) threshold ∈ [0,1]
+    double depth       = 4;   // D(entity,t) Akashic Depth
+    float  love        = 5;   // Love coefficient ∈ [0,1]
+    double xi          = 6;   // Ξ(entity,t) truth value
+    bool   is_silenced = 7;   // BC < Ψ ?
+    uint64 gps_timestamp = 8;
+}
+
+// ============================================================================
+// AXIOM NODE SERVICE
+// ============================================================================
+
+service AXIOMNode {
+    // Emit a behavioral event (L1 UBH generation)
+    rpc EmitEvent (EmitEventRequest) returns (EmitEventResponse);
+
+    // Get truth state snapshot
+    rpc GetTruthState (TruthStateRequest) returns (TruthStateResponse);
+
+    // Stream truth state updates for an entity
+    rpc StreamTruthState (TruthStateRequest) returns (stream TruthStateResponse);
+
+    // Route an RCP packet
+    rpc RoutePacket (RCPPacketRequest) returns (RCPPacketResponse);
+
+    // Get entity events from Akashic Index
+    rpc GetEvents (GetEventsRequest) returns (GetEventsResponse);
+
+    // Health check
+    rpc Health (HealthRequest) returns (HealthResponse);
+}
+
+// ============================================================================
+// HELPER MESSAGES
+// ============================================================================
+
+message GetEventsRequest {
+    bytes  entity_bpi  = 1;
+    uint64 from_ns     = 2;
+    uint64 to_ns       = 3;
+    uint32 max_results = 4;
+}
+
+message GetEventsResponse {
+    repeated UniversalBehavioralHash events = 1;
+    uint64 total_count = 2;
+}
+
+message RCPPacketRequest {
+    bytes  sender_bpi   = 1;
+    bytes  receiver_bpi = 2;
+    bytes  payload      = 3;
+    uint32 ttl          = 4;
+    uint64 timestamp    = 5;
+}
+
+message RCPPacketResponse {
+    bool   delivered     = 1;
+    bytes  next_hop_bpi  = 2;
+    float  resonance     = 3;
+    string error_msg     = 4;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+    string status          = 1;
+    float  local_bc        = 2;
+    float  local_psi       = 3;
+    bool   is_silenced     = 4;
+    uint32 connected_peers = 5;
+    uint64 events_processed = 6;
+}

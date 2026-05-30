@@ -1,0 +1,36 @@
+[package]
+name = "axiom-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "AXIOM Core — L0 entropy, L1 UBH engine, L2 entity resolution, L5 living kernel"
+
+[dependencies]
+blake3.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+rayon.workspace = true
+ordered-float.workspace = true
+hex.workspace = true
+sha2.workspace = true
+rand.workspace = true
+bytes.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+[features]
+default = ["std"]
+std = []
+no_std = []       # bare-metal / embedded targets
+sgx = []          # Intel SGX attestation support
+trustzone = []    # ARM TrustZone support
+simulation = []   # Simulate GPS/HSM entropy for testing
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }

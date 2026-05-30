@@ -1,0 +1,78 @@
+// AXIOM Protocol Buffers — Cross-Domain Behavioral Interface (CDBI)
+//
+// Invention #17: Single interface for ALL entity types.
+// An AI model, blockchain wallet, and microcontroller
+// use identical RPC methods.
+
+syntax = "proto3";
+
+package axiom.cdbi.v1;
+
+option go_package = "github.com/dev-analyshd/TRION-Protocol/AXIOM/axiom-rcp/proto";
+
+import "ubh.proto";
+
+// CDBI service — the universal behavioral interface.
+service BehavioralEntityService {
+    // Identity
+    rpc GetBPI (TimestampRequest) returns (BPIResponse);
+    rpc GetDepth (TimestampRequest) returns (DepthResponse);
+
+    // Coherence
+    rpc GetCoherence (TimestampRequest) returns (CoherenceResponse);
+    rpc GetThreshold (TimestampRequest) returns (ThresholdResponse);
+    rpc IsSilenced (TimestampRequest) returns (SilencedResponse);
+
+    // Behavioral History
+    rpc GetEvents (EventRangeRequest) returns (EventsResponse);
+
+    // Communication (RCP)
+    rpc GetResonanceVector (TimestampRequest) returns (ResonanceVectorResponse);
+
+    // Truth State
+    rpc GetTruthState (TimestampRequest) returns (axiom.v1.TruthStateResponse);
+
+    // Event Emission
+    rpc EmitEvent (axiom.v1.EmitEventRequest) returns (axiom.v1.EmitEventResponse);
+}
+
+message TimestampRequest {
+    bytes  entity_bpi   = 1;
+    uint64 timestamp_ns = 2;  // 0 = current time
+}
+
+message BPIResponse {
+    bytes bpi = 1;  // Current BPI at requested time
+}
+
+message DepthResponse {
+    double depth = 1;  // D(entity, t)
+}
+
+message CoherenceResponse {
+    float bc = 1;  // BC(entity, t) ∈ [0,1]
+}
+
+message ThresholdResponse {
+    float psi = 1;  // Ψ(entity, t) ∈ [0,1]
+}
+
+message SilencedResponse {
+    bool is_silenced = 1;
+}
+
+message EventRangeRequest {
+    bytes  entity_bpi  = 1;
+    uint64 from_ns     = 2;
+    uint64 to_ns       = 3;
+    uint32 max_results = 4;
+}
+
+message EventsResponse {
+    repeated axiom.v1.UniversalBehavioralHash events = 1;
+}
+
+message ResonanceVectorResponse {
+    bytes entity_bpi = 1;
+    repeated float rf = 2;  // 32 dimensions
+}

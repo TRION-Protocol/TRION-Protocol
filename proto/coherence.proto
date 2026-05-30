@@ -1,0 +1,90 @@
+// AXIOM Protocol Buffers — Coherence Engine Messages
+//
+// Messages for the L4 Coherence Engine ↔ L5 Living Kernel communication.
+
+syntax = "proto3";
+
+package axiom.coherence.v1;
+
+option go_package = "github.com/dev-analyshd/TRION-Protocol/AXIOM/axiom-rcp/proto";
+
+// Five-plane coherence scores.
+message CoherencePlanes {
+    float phi   = 1;   // Φ: Causal Flux ∈ [0,1]
+    float mu    = 2;   // M: Model Confidence ∈ [0,1]
+    float sigma = 3;   // Σ: Network Consensus ∈ [0,1]
+    float kappa = 4;   // K: Environmental Context ∈ [0,1]
+    float alpha = 5;   // A: Adaptive Intelligence ∈ [0,1]
+}
+
+// Coherence update — emitted by L4 for every significant BC change.
+message CoherenceUpdate {
+    bytes  entity_bpi    = 1;
+    float  bc            = 2;   // BC(entity,t) = α·Φ + β·M + γ·Σ + δ·K + ε·A
+    float  psi           = 3;   // Ψ(entity,t) dynamic threshold
+    double depth         = 4;   // D(entity,t)
+    bool   is_silenced   = 5;   // BC < Ψ?
+    double xi            = 6;   // Ξ(entity,t) master equation result
+    CoherencePlanes planes = 7;
+    bool   anomaly_detected = 8; // Pre-detection: P(event | model) < 0.01?
+    uint64 timestamp_ns  = 9;
+}
+
+// BIS interrupt — emitted by BIS controller to Living Kernel.
+message BISInterrupt {
+    bytes entity_bpi    = 1;
+    float traj_score    = 2;  // TRAJ(entity,t) in σ units
+    uint32 bis_level    = 3;  // 1-4
+    repeated uint32 anomaly_sequence  = 4;  // UBE types observed
+    repeated uint32 expected_sequence = 5;  // UBE types expected
+    float  bc_at_interrupt   = 6;
+    double depth_at_interrupt = 7;
+    uint64 gps_timestamp     = 8;
+    bytes  causal_context    = 9;   // 32 bytes
+}
+
+// Window function result (Flink CoherenceWindowFunction output).
+message WindowResult {
+    bytes  entity_bpi    = 1;
+    float  bc            = 2;
+    uint64 window_start  = 3;
+    uint64 window_end    = 4;
+    uint32 event_count   = 5;
+    CoherencePlanes planes = 6;
+}
+
+// Coherence Engine gRPC service.
+service CoherenceEngine {
+    // Submit a behavioral event for processing.
+    rpc ProcessEvent (axiom.v1.UniversalBehavioralHash) returns (CoherenceUpdate);
+
+    // Stream coherence updates for an entity.
+    rpc StreamUpdates (axiom.v1.TruthStateRequest) returns (stream CoherenceUpdate);
+
+    // Raise threat level for an entity (during active attack).
+    rpc RaiseThreat (RaiseThreatRequest) returns (RaiseThreatResponse);
+
+    // Get all entities currently SILENCED.
+    rpc GetSilencedEntities (SilencedQuery) returns (SilencedList);
+}
+
+message RaiseThreatRequest {
+    bytes entity_bpi  = 1;
+    float threat_level = 2;  // ∈ [0,1]
+}
+
+message RaiseThreatResponse {
+    float new_psi = 1;
+    bool  ok      = 2;
+}
+
+message SilencedQuery {
+    uint64 since_ns = 1;
+}
+
+message SilencedList {
+    repeated bytes entity_bpis = 1;
+    uint32 total_count = 2;
+}
+
+import "ubh.proto";

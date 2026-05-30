@@ -1,0 +1,83 @@
+// AXIOM Protocol Buffers — RCP (Resonance Communication Protocol)
+//
+// Messages for the L6 Resonance Network.
+
+syntax = "proto3";
+
+package axiom.rcp.v1;
+
+option go_package = "github.com/dev-analyshd/TRION-Protocol/AXIOM/axiom-rcp/proto";
+
+// RCP Packet — the routing unit in the Resonance Network.
+// Routed by behavioral resonance, not IP addresses.
+message RCPPacket {
+    bytes  sender_bpi   = 1;   // 32 bytes
+    bytes  receiver_bpi = 2;   // 32 bytes
+    uint32 ttl          = 3;   // Decrements at each hop
+    bytes  payload      = 4;   // Packet payload
+    uint64 timestamp_ns = 5;   // GPS nanoseconds
+    float  sender_bc    = 6;   // BC(sender) at send time
+    bytes  signature    = 7;   // Blake3 of packet fields (32 bytes)
+    repeated bytes hop_bpis = 8; // Hop trace (for debugging)
+}
+
+// Resonance frequency vector — 32-dim UBE frequency distribution.
+message ResonanceVector {
+    bytes entity_bpi = 1;
+    repeated float rf = 2;  // 32 float32 values
+    uint64 computed_at = 3;
+}
+
+// Peer registration in the Resonance Network.
+message PeerRegistration {
+    bytes  entity_bpi  = 1;
+    ResonanceVector rf = 2;
+    string grpc_addr   = 3;
+    float  bc          = 4;
+    double depth       = 5;
+}
+
+// Resonance score between two entities.
+message ResonanceScore {
+    bytes entity_a   = 1;
+    bytes entity_b   = 2;
+    float resonance  = 3;  // Cosine similarity ∈ [0,1]
+    bool  connected  = 4;  // resonance > 0.15 (RCP_THRESHOLD)
+    uint64 computed_at = 5;
+}
+
+// RCP routing service.
+service RCPRouter {
+    // Route a packet through the Resonance Network.
+    rpc RoutePacket (RCPPacket) returns (RouteResult);
+
+    // Register as a peer in the Resonance Network.
+    rpc RegisterPeer (PeerRegistration) returns (RegisterResult);
+
+    // Query resonance with a target entity.
+    rpc GetResonance (ResonanceQuery) returns (ResonanceScore);
+
+    // Stream incoming packets for this entity.
+    rpc ReceivePackets (ReceiveRequest) returns (stream RCPPacket);
+}
+
+message RouteResult {
+    bool   delivered   = 1;
+    bytes  next_hop    = 2;
+    float  resonance   = 3;
+    string error       = 4;
+}
+
+message RegisterResult {
+    bool   accepted = 1;
+    string error    = 2;
+}
+
+message ResonanceQuery {
+    bytes entity_a = 1;
+    bytes entity_b = 2;
+}
+
+message ReceiveRequest {
+    bytes entity_bpi = 1;
+}

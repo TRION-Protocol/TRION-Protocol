@@ -1,0 +1,14 @@
+[package]
+name = "axiom-cairo"
+version = "0.1.0"
+edition = "2024_07"
+description = "AXIOM Cairo ZK programs — behavioral proofs on Starknet"
+authors = ["Hudu Yusuf (Analys) <analys@trionprotocol.io>"]
+license = "CC0-1.0"
+
+[dependencies]
+starknet = ">=2.6.3"
+
+[[target.starknet-contract]]
+sierra = true
+casm = true

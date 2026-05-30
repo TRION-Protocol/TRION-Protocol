@@ -1,0 +1,83 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.pycache
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+*.pyc
+
+# Node / TypeScript
+node_modules/
+dist/
+*.js.map
+.next/
+.nuxt/
+coverage/
+typechain-types/
+artifacts/
+cache/
+
+# Go
+*.test
+*.out
+
+# C / CMake
+build/
+*.o
+*.a
+*.so
+*.d
+cmake_install.cmake
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+
+# Docker
+.env.local
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+*.p12
+*.pfx
+.env.production
+.env.staging
+deployment-config.json
+
+# Database
+*.sql.bak
+*.dump
+
+# Cairo / Starknet
+target/
+.snfoundry_cache/
+
+# Noir / Barretenberg
+target/
+proof/
+vk
+
+# AXIOM runtime
+*.ubh.cache
+axiom.local.toml

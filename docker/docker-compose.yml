@@ -1,0 +1,234 @@
+version: '3.9'
+
+# ============================================================================
+# AXIOM Full Stack — Docker Compose
+#
+# Spins up:
+#   - TimescaleDB (Akashic Index)
+#   - Redis (hot cache)
+#   - AXIOM Validator Node (Rust, L0-L2, L5)
+#   - AXIOM Coherence Engine (Python, L4)
+#   - AXIOM RCP Daemon (Go, L6)
+#   - Kafka + Zookeeper (behavioral event streaming)
+#   - Prometheus + Grafana (observability)
+#
+# Author: Hudu Yusuf (Analys), @The_analys
+# License: CC0 1.0 Universal
+# ============================================================================
+
+networks:
+  axiom-net:
+    driver: bridge
+
+volumes:
+  timescaledb-data:
+  redis-data:
+  kafka-data:
+  grafana-data:
+
+services:
+
+  # ==========================================================================
+  # TimescaleDB — L3 Akashic Index (primary behavioral event store)
+  # ==========================================================================
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: axiom-akashic
+    networks:
+      - axiom-net
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      - ../sql/akashic_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    environment:
+      POSTGRES_DB: axiom
+      POSTGRES_USER: axiom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-axiom_dev_password}
+      POSTGRES_MAX_CONNECTIONS: 200
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "axiom", "-d", "axiom"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ==========================================================================
+  # Redis — hot cache for recent behavioral events
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: axiom-cache
+    networks:
+      - axiom-net
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ==========================================================================
+  # Zookeeper — Kafka coordination
+  # ==========================================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: axiom-zookeeper
+    networks:
+      - axiom-net
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # ==========================================================================
+  # Kafka — behavioral event streaming bus
+  # ==========================================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: axiom-kafka
+    networks:
+      - axiom-net
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 720   # 30 days
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 32
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ==========================================================================
+  # AXIOM Validator Node — L0-L2 + L5 Living Kernel
+  # ==========================================================================
+  validator:
+    build:
+      context: ..
+      dockerfile: docker/validator/Dockerfile
+    container_name: axiom-validator
+    networks:
+      - axiom-net
+    ports:
+      - "7777:7777"   # gRPC
+      - "8080:8080"   # Health/metrics HTTP
+    environment:
+      DATABASE_URL: postgres://axiom:${POSTGRES_PASSWORD:-axiom_dev_password}@timescaledb:5432/axiom
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      AXIOM_GRPC_PORT: 7777
+      AXIOM_HTTP_PORT: 8080
+      AXIOM_LOG_LEVEL: info
+      AXIOM_ENV: ${AXIOM_ENV:-development}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - /dev/hwrng:/dev/hwrng:ro   # Hardware entropy (optional)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # AXIOM Coherence Engine — L4 (Python + PyTorch)
+  # ==========================================================================
+  coherence:
+    build:
+      context: ..
+      dockerfile: docker/coherence/Dockerfile
+    container_name: axiom-coherence
+    networks:
+      - axiom-net
+    ports:
+      - "8888:8888"   # Coherence API
+    environment:
+      DATABASE_URL: postgres://axiom:${POSTGRES_PASSWORD:-axiom_dev_password}@timescaledb:5432/axiom
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      AXIOM_VALIDATOR_GRPC: validator:7777
+      WINDOW_SECONDS: 60
+      LOG_LEVEL: info
+    depends_on:
+      - validator
+      - kafka
+    restart: unless-stopped
+
+  # ==========================================================================
+  # AXIOM RCP Daemon — L6 (Go)
+  # ==========================================================================
+  rcp:
+    build:
+      context: ..
+      dockerfile: docker/validator/Dockerfile
+      target: rcp
+    container_name: axiom-rcp
+    networks:
+      - axiom-net
+    ports:
+      - "7778:7778"   # RCP gRPC
+      - "7779:7779"   # RCP P2P
+    environment:
+      AKASHIC_URL: postgres://axiom:${POSTGRES_PASSWORD:-axiom_dev_password}@timescaledb:5432/axiom
+      REDIS_URL: redis://redis:6379
+      RCP_GRPC_PORT: 7778
+      RCP_P2P_PORT: 7779
+      LOG_LEVEL: info
+    depends_on:
+      - timescaledb
+      - redis
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Prometheus — metrics collection
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: axiom-prometheus
+    networks:
+      - axiom-net
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+
+  # ==========================================================================
+  # Grafana — behavioral coherence dashboards
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: axiom-grafana
+    networks:
+      - axiom-net
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-axiom_admin}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/axiom_overview.json
+    depends_on:
+      - prometheus

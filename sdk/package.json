@@ -1,0 +1,32 @@
+{
+  "name": "@axiom/sdk",
+  "version": "0.0.0-D(AXIOM.t)",
+  "description": "AXIOM TypeScript SDK — Cross-Domain Behavioral Interface (CDBI)",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "license": "CC0-1.0",
+  "author": "Hudu Yusuf (Analys) <analys@trionprotocol.io>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dev-analyshd/TRION-Protocol"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json && rollup -c",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "rollup": "^4.18.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true }
+  },
+  "files": ["dist", "src"],
+  "keywords": ["axiom", "behavioral-computing", "trion", "identity", "zkp", "coherence"]
+}
