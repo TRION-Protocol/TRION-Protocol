@@ -1,6 +1,6 @@
 # TRION Protocol
 
-A behavioral execution firewall for DeFi protocols on Arbitrum. TRION monitors on-chain activity to derive a real-time coherence score, publishes that score to an on-chain oracle, and allows integrated protocols to gate sensitive functions against anomalous network states.
+TRION is the first substrate-independent, behavioral truth infrastructure: a system that treats behavior as a permanent, portable, self-verifying substance that identity is made of and civilization can be organized around.  
 
 ---
 
